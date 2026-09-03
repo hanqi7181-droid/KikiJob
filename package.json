@@ -1,0 +1,37 @@
+{
+  "name": "auto-cv",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "server": "node server/index.js",
+    "migration:sqlite:dry-run": "node server/scripts/export_sqlite_for_postgres.js",
+    "migration:sqlite:export": "node server/scripts/export_sqlite_for_postgres.js --write",
+    "postgres:check": "node server/scripts/check_postgres.js",
+    "postgres:migrate:dry-run": "node server/scripts/run_postgres_migrations.js --dry-run",
+    "postgres:migrate": "node server/scripts/run_postgres_migrations.js",
+    "postgres:import:dry-run": "node server/scripts/import_sqlite_export_to_postgres.js",
+    "postgres:import": "node server/scripts/import_sqlite_export_to_postgres.js --write",
+    "postgres:verify-migration": "node server/scripts/verify_postgres_migration.js",
+    "test": "node --test \"src/**/*.test.js\" \"server/**/*.test.js\" \"chrome-extension/**/*.test.js\" \"chrome-extension/**/*.test.cjs\"",
+    "lint": "eslint .",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^5.1.1",
+    "lucide-react": "^0.468.0",
+    "pg": "^8.23.0",
+    "playwright-core": "^1.62.1",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "typescript": "^5.8.3",
+    "vite": "^7.1.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "eslint": "^9.39.5",
+    "globals": "^16.5.0"
+  }
+}

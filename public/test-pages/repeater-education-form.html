@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JobPilot Repeater Education Test</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: #f6f8fb;
+        color: #17202f;
+        font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+      }
+
+      main {
+        width: min(980px, calc(100% - 32px));
+        margin: 32px auto;
+        display: grid;
+        gap: 18px;
+      }
+
+      section,
+      form {
+        display: grid;
+        gap: 16px;
+        border: 1px solid #dce4ef;
+        border-radius: 10px;
+        background: #ffffff;
+        padding: 20px;
+      }
+
+      h1,
+      h2,
+      p {
+        margin: 0;
+      }
+
+      .education-item {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+        border: 1px dashed #cfd8e5;
+        border-radius: 10px;
+        padding: 14px;
+      }
+
+      label {
+        display: grid;
+        gap: 6px;
+        font-weight: 700;
+      }
+
+      input,
+      select,
+      textarea {
+        min-height: 40px;
+        border: 1px solid #cfd8e5;
+        border-radius: 8px;
+        padding: 9px 10px;
+        font: inherit;
+      }
+
+      button {
+        justify-self: start;
+        min-height: 40px;
+        border: 0;
+        border-radius: 8px;
+        background: #18b487;
+        color: #ffffff;
+        padding: 0 14px;
+        font-weight: 800;
+        cursor: pointer;
+      }
+
+      pre {
+        overflow: auto;
+        max-height: 280px;
+        border-radius: 10px;
+        background: #111827;
+        color: #d1fae5;
+        padding: 14px;
+      }
+
+      .hint {
+        color: #667389;
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section>
+        <h1>JobPilot Education Repeater Test</h1>
+        <p class="hint">Initial page has 1 education item. The test package contains 3 education records. Re-running should not add more than 3.</p>
+      </section>
+
+      <form id="repeater-test-form">
+        <section id="education-section" data-repeater-type="education" aria-label="Education Background">
+          <h2>Education Background</h2>
+          <div id="education-items">
+            <div class="education-item" data-repeater-item="education">
+              <label>
+                School
+                <input name="education_school_1" placeholder="School / University" />
+              </label>
+              <label>
+                Major
+                <input name="education_major_1" placeholder="Major" />
+              </label>
+              <label>
+                Degree
+                <select name="education_degree_1">
+                  <option value="">Select degree</option>
+                  <option value="Bachelor">Bachelor</option>
+                  <option value="Master">Master</option>
+                  <option value="PhD">PhD</option>
+                </select>
+              </label>
+              <label>
+                Start Date
+                <input name="education_start_1" type="text" placeholder="YYYY.MM" />
+              </label>
+              <label>
+                End Date
+                <input name="education_end_1" type="text" placeholder="YYYY.MM" />
+              </label>
+            </div>
+          </div>
+          <button id="addEducation" type="button">+ Add education</button>
+        </section>
+      </form>
+
+      <section>
+        <h2>Test Fill Package</h2>
+        <p class="hint">Copy this JSON into the extension popup and click fill current page.</p>
+        <pre id="testPackage"></pre>
+      </section>
+    </main>
+
+    <script>
+      const packageData = {
+        steps: [
+          { group: '教育经历', field: '教育经历1-学校', sourceLabel: '教育经历1-学校', value: '香港城市大学', confidence: '高' },
+          { group: '教育经历', field: '教育经历1-专业', sourceLabel: '教育经历1-专业', value: '商业人工智能', confidence: '高' },
+          { group: '教育经历', field: '教育经历1-学历', sourceLabel: '教育经历1-学历', value: 'Master', confidence: '高' },
+          { group: '教育经历', field: '教育经历1-开始时间', sourceLabel: '教育经历1-开始时间', value: '2025.09', confidence: '高' },
+          { group: '教育经历', field: '教育经历1-结束时间', sourceLabel: '教育经历1-结束时间', value: '2026.11', confidence: '高' },
+          { group: '教育经历', field: '教育经历2-学校', sourceLabel: '教育经历2-学校', value: '大连交通大学', confidence: '高' },
+          { group: '教育经历', field: '教育经历2-专业', sourceLabel: '教育经历2-专业', value: '英语 + 软件工程', confidence: '高' },
+          { group: '教育经历', field: '教育经历2-学历', sourceLabel: '教育经历2-学历', value: 'Bachelor', confidence: '高' },
+          { group: '教育经历', field: '教育经历2-开始时间', sourceLabel: '教育经历2-开始时间', value: '2020.09', confidence: '高' },
+          { group: '教育经历', field: '教育经历2-结束时间', sourceLabel: '教育经历2-结束时间', value: '2025.06', confidence: '高' },
+          { group: '教育经历', field: '教育经历3-学校', sourceLabel: '教育经历3-学校', value: 'JobPilot 测试学院', confidence: '高' },
+          { group: '教育经历', field: '教育经历3-专业', sourceLabel: '教育经历3-专业', value: 'AI Product Lab', confidence: '高' },
+          { group: '教育经历', field: '教育经历3-学历', sourceLabel: '教育经历3-学历', value: 'Master', confidence: '高' },
+          { group: '教育经历', field: '教育经历3-开始时间', sourceLabel: '教育经历3-开始时间', value: '2026.12', confidence: '高' },
+          { group: '教育经历', field: '教育经历3-结束时间', sourceLabel: '教育经历3-结束时间', value: '2027.06', confidence: '高' }
+        ]
+      };
+
+      document.querySelector('#testPackage').textContent = JSON.stringify(packageData, null, 2);
+      document.querySelector('#addEducation').addEventListener('click', () => {
+        const items = document.querySelector('#education-items');
+        const index = items.querySelectorAll('[data-repeater-item="education"]').length + 1;
+        const item = items.querySelector('[data-repeater-item="education"]').cloneNode(true);
+        item.querySelectorAll('input, select, textarea').forEach((control) => {
+          control.value = '';
+          control.name = control.name.replace(/\d+$/, String(index));
+        });
+        items.appendChild(item);
+      });
+    </script>
+  </body>
+</html>

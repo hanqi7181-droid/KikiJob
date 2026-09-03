@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "Auto CV Careers Autofill",
+  "version": "0.1.0",
+  "description": "Fill the current Careers application tab from an Auto CV fill package. Never submits forms.",
+  "permissions": ["activeTab", "scripting", "tabs", "storage"],
+  "host_permissions": ["<all_urls>"],
+  "action": {
+    "default_title": "Auto CV Autofill",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": [
+        "src/content/core/normalize.js",
+        "src/content/core/scanner.js",
+        "src/content/core/matcher.js",
+        "src/content/core/filler.js",
+        "src/content/core/profileNormalizer.js",
+        "src/content/core/dynamicForms.js",
+        "src/content/repeaters/generic.js",
+        "src/content/adapters/generic.js",
+        "src/content/adapters/moka.js",
+        "src/content/adapters/mokaDrivers.js",
+        "src/content/adapters/mokaV2.js",
+        "src/content/adapters/mokaGoldenSchema.js",
+        "src/content/adapters/registry.js",
+        "contentScript.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

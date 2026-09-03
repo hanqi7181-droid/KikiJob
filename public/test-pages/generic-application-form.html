@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JobPilot Generic Application Form Test</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: #f6f8fb;
+        color: #17202f;
+        font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+      }
+
+      main {
+        width: min(960px, calc(100% - 32px));
+        margin: 32px auto;
+        display: grid;
+        gap: 20px;
+      }
+
+      form,
+      section {
+        display: grid;
+        gap: 16px;
+        border: 1px solid #dce4ef;
+        border-radius: 10px;
+        background: #ffffff;
+        padding: 20px;
+      }
+
+      h1,
+      h2,
+      p {
+        margin: 0;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      label,
+      .field {
+        display: grid;
+        gap: 6px;
+        font-weight: 700;
+      }
+
+      input,
+      select,
+      textarea {
+        min-height: 40px;
+        border: 1px solid #cfd8e5;
+        border-radius: 8px;
+        padding: 9px 10px;
+        font: inherit;
+      }
+
+      textarea {
+        min-height: 92px;
+      }
+
+      fieldset {
+        border: 1px solid #dce4ef;
+        border-radius: 8px;
+        display: grid;
+        gap: 8px;
+      }
+
+      .inline {
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+      }
+
+      .inline label {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-weight: 500;
+      }
+
+      .hint {
+        color: #667389;
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section>
+        <h1>Generic Careers Form Test</h1>
+        <p class="hint">Use this local page to verify field scanning only. Do not submit real applications here.</p>
+      </section>
+
+      <form id="candidate-basic-form" name="candidateBasic">
+        <h2>Personal Information</h2>
+        <input type="hidden" name="csrf_token" value="fake-token" />
+
+        <div class="grid">
+          <label for="fullName">
+            Full Name
+            <input id="fullName" name="full_name" autocomplete="name" placeholder="Your legal name" required />
+          </label>
+
+          <label for="email">
+            Email Address
+            <input id="email" name="candidate_email" type="email" autocomplete="email" placeholder="name@example.com" required />
+          </label>
+
+          <label for="phone">
+            Mobile Phone
+            <input id="phone" name="mobile" type="tel" autocomplete="tel" placeholder="+86 138 0000 0000" />
+          </label>
+
+          <label for="salary">
+            Expected Monthly Salary
+            <input id="salary" name="expected_salary" type="number" min="0" step="1000" placeholder="20000" />
+          </label>
+
+          <label for="startDate">
+            Earliest Start Date
+            <input id="startDate" name="available_from" type="date" />
+          </label>
+
+          <label for="location">
+            Preferred Location
+            <select id="location" name="preferred_location" required>
+              <option value="">Select one</option>
+              <option value="shenzhen">Shenzhen</option>
+              <option value="hong-kong">Hong Kong</option>
+              <option value="shanghai">Shanghai</option>
+              <option value="hangzhou">Hangzhou</option>
+            </select>
+          </label>
+        </div>
+
+        <fieldset>
+          <legend>Application Type</legend>
+          <div class="inline">
+            <label><input type="radio" name="application_type" value="internship" required /> Internship</label>
+            <label><input type="radio" name="application_type" value="graduate" /> Graduate Program</label>
+            <label><input type="radio" name="application_type" value="experienced" /> Experienced Hire</label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Preferred Functions</legend>
+          <div class="inline">
+            <label><input type="checkbox" name="functions" value="ai_product" /> AI Product</label>
+            <label><input type="checkbox" name="functions" value="data_analysis" /> Data Analysis</label>
+            <label><input type="checkbox" name="functions" value="ml_engineering" /> ML Engineering</label>
+          </div>
+        </fieldset>
+
+        <label for="resume">
+          Resume / CV
+          <input id="resume" name="resume_file" type="file" accept=".pdf,.doc,.docx" />
+        </label>
+
+        <label for="coverLetter">
+          Cover Letter
+          <textarea id="coverLetter" name="cover_letter" placeholder="Briefly introduce yourself"></textarea>
+        </label>
+      </form>
+
+      <form id="experience-form" name="candidateExperience">
+        <h2>Experience</h2>
+        <div class="grid">
+          <div class="field">
+            <span id="school-label">University / School</span>
+            <input name="school" aria-labelledby="school-label school-help" placeholder="University name" />
+            <span id="school-help" class="hint">Use the official English or Chinese name.</span>
+          </div>
+
+          <label>
+            Degree
+            <select name="degree" autocomplete="organization-title">
+              <option>Bachelor</option>
+              <option>Master</option>
+              <option>PhD</option>
+            </select>
+          </label>
+
+          <label>
+            Internship Company
+            <input name="internship_company" placeholder="Company name" readonly value="Example readonly value" />
+          </label>
+
+          <label>
+            Project Description
+            <textarea name="project_description" aria-label="Describe a relevant AI or data project"></textarea>
+          </label>
+        </div>
+
+        <label>
+          Disabled Referral Code
+          <input name="referral_code" placeholder="Disabled field should still be reported as disabled" disabled />
+        </label>
+
+        <label>
+          Verification Code
+          <input name="captcha_code" placeholder="This captcha field should be ignored" />
+        </label>
+
+        <label>
+          Account Password
+          <input name="account_password" type="password" placeholder="This password field should be ignored" />
+        </label>
+      </form>
+    </main>
+  </body>
+</html>

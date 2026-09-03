@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Auto CV Autofill</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <strong>Auto CV Autofill</strong>
+        <span>只填当前页，不自动提交</span>
+      </header>
+
+      <label>
+        <span>填充包 JSON</span>
+        <textarea id="packageInput" rows="9" placeholder="从 Auto CV 官网填表页复制扩展填充包后粘贴到这里"></textarea>
+      </label>
+
+      <div class="actions">
+        <button id="scanButton" type="button">扫描当前页</button>
+        <button id="copyScanButton" type="button">复制扫描 JSON</button>
+        <button id="fillButton" type="button">填当前页</button>
+      </div>
+
+      <div class="actions three">
+        <button id="watchButton" type="button">监听步骤</button>
+        <button id="watchStatusButton" type="button">步骤统计</button>
+        <button id="stopWatchButton" type="button">停止监听</button>
+      </div>
+
+      <div class="actions">
+        <button id="exportMokaSchemaButton" type="button">导出 MokaHR 页面结构</button>
+        <button id="probeMokaSchemaButton" type="button">Probe Components</button>
+      </div>
+
+      <section class="learning-panel">
+        <div>
+          <strong>字段学习</strong>
+          <span>默认保存到当前域名</span>
+        </div>
+        <select id="scopeSelect">
+          <option value="domain">当前域名映射</option>
+          <option value="page">当前页面临时映射</option>
+          <option value="ats">当前 ATS 平台映射</option>
+          <option value="global">全局同义词映射</option>
+        </select>
+        <button id="learnedButton" type="button">查看已学习</button>
+      </section>
+
+      <section id="status" class="status">等待操作</section>
+      <section id="results" class="results"></section>
+    </main>
+    <script src="config.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>
