@@ -11,6 +11,7 @@
     "postgres:check": "node server/scripts/check_postgres.js",
     "postgres:migrate:dry-run": "node server/scripts/run_postgres_migrations.js --dry-run",
     "postgres:migrate": "node server/scripts/run_postgres_migrations.js",
+    "postgres:sync-sequences": "node server/scripts/sync_postgres_sequences.js",
     "postgres:import:dry-run": "node server/scripts/import_sqlite_export_to_postgres.js",
     "postgres:import": "node server/scripts/import_sqlite_export_to_postgres.js --write",
     "postgres:verify-migration": "node server/scripts/verify_postgres_migration.js",

@@ -2,6 +2,7 @@ import '../env.js';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createPostgresRuntimeAdapter } from '../db/postgres.js';
+import { syncIdentitySequence } from './sync_postgres_sequences.js';
 
 const projectRoot = join(import.meta.dirname, '..', '..');
 const exportDir = process.env.MIGRATION_EXPORT_DIR || join(projectRoot, 'migration-exports');
@@ -48,6 +49,7 @@ try {
   await importApplications(adapter, plan.tables.applications);
   await importJobMatches(adapter, plan.tables.job_matches);
   await importFormMappings(adapter, plan.tables.form_mappings);
+  await syncImportedIdentitySequences(adapter);
   await adapter.query('COMMIT');
 
   console.log(
@@ -66,6 +68,24 @@ try {
   throw error;
 } finally {
   await adapter.close();
+}
+
+async function syncImportedIdentitySequences(adapter) {
+  const importedIdentityTables = [
+    'users',
+    'user_profiles',
+    'job_preferences',
+    'companies',
+    'jobs',
+    'resumes',
+    'applications',
+    'job_matches',
+    'form_mappings',
+  ];
+
+  for (const tableName of importedIdentityTables) {
+    await syncIdentitySequence(adapter, tableName, 'id');
+  }
 }
 
 function buildImportPlan(payload) {
