@@ -12,6 +12,7 @@
     "postgres:migrate:dry-run": "node server/scripts/run_postgres_migrations.js --dry-run",
     "postgres:migrate": "node server/scripts/run_postgres_migrations.js",
     "postgres:sync-sequences": "node server/scripts/sync_postgres_sequences.js",
+    "postgres:reassign-demo-owner": "node server/scripts/reassign_demo_owner.js",
     "storage:ensure-bucket": "node server/scripts/ensure_storage_bucket.js",
     "postgres:import:dry-run": "node server/scripts/import_sqlite_export_to_postgres.js",
     "postgres:import": "node server/scripts/import_sqlite_export_to_postgres.js --write",
