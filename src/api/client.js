@@ -178,14 +178,21 @@ export async function runAutofill(url, steps) {
 }
 
 async function request(path, options = {}) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...authHeaders(),
-      ...(options.headers || {}),
-    },
-  });
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+        ...(options.headers || {}),
+      },
+    });
+  } catch {
+    throw new Error(
+      `无法连接后端服务：${API_BASE_URL}。请检查 Vercel 的 VITE_API_BASE_URL、Railway 服务状态和 CORS 配置。`,
+    );
+  }
 
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));

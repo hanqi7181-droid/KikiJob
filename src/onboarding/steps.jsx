@@ -103,6 +103,7 @@ function LoginStep({
   const [password, setPassword] = useState('');
   const [emailCode, setEmailCode] = useState('');
   const [status, setStatus] = useState(authUser ? '已登录，后续数据会保存到当前账号。' : '');
+  const [pendingAction, setPendingAction] = useState('');
 
   const account = String(login.account || '').trim();
   const setLoginStatus = (message) => {
@@ -112,35 +113,51 @@ function LoginStep({
 
   const handlePasswordLogin = async () => {
     if (!loginWithPassword) return setLoginStatus('后端登录接口未启动。');
+    if (!account) return setLoginStatus('请先输入邮箱。');
+    if (!password) return setLoginStatus('请先输入密码。');
     try {
+      setPendingAction('password');
       setLoginStatus('正在登录...');
       const payload = await loginWithPassword(account, password);
       onAuthChanged?.(payload);
       setLoginStatus(`已登录：${payload.user?.email || payload.user?.phone || '当前账号'}`);
     } catch (error) {
       setLoginStatus(error.message || '登录失败，请检查账号密码。');
+    } finally {
+      setPendingAction('');
     }
   };
 
   const handleRequestEmailCode = async () => {
     if (!requestEmailCode) return setLoginStatus('邮箱验证码接口未启动。');
+    if (!account) return setLoginStatus('请先输入邮箱。');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(account)) return setLoginStatus('请输入有效邮箱后再获取验证码。');
     try {
+      setPendingAction('requestEmailCode');
+      setLoginStatus(`正在向 ${account} 发送验证码...`);
       const payload = await requestEmailCode(account);
       setLoginStatus(payload.devCode ? `邮箱验证码已生成：${payload.devCode}（本地开发模式）` : `验证码已发送至 ${payload.email}`);
     } catch (error) {
       setLoginStatus(error.message || '验证码发送失败。');
+    } finally {
+      setPendingAction('');
     }
   };
 
   const handleVerifyEmail = async () => {
     if (!verifyEmailCode) return setLoginStatus('邮箱验证码登录接口未启动。');
+    if (!account) return setLoginStatus('请先输入邮箱。');
+    if (!emailCode) return setLoginStatus('请先输入邮箱验证码。');
     try {
+      setPendingAction('verifyEmailCode');
       setLoginStatus('正在验证...');
       const payload = await verifyEmailCode(account, emailCode);
       onAuthChanged?.(payload);
       setLoginStatus(`已登录：${payload.user?.email || '当前账号'}`);
     } catch (error) {
       setLoginStatus(error.message || '验证码不正确或已过期。');
+    } finally {
+      setPendingAction('');
     }
   };
 
@@ -187,14 +204,32 @@ function LoginStep({
                 <span>验证码</span>
                 <input value={emailCode} onChange={(event) => setEmailCode(event.target.value)} placeholder="6 位验证码" inputMode="numeric" />
               </label>
-              <button type="button" className="secondary-action" onClick={handleRequestEmailCode}>获取验证码</button>
+              <button
+                type="button"
+                className="secondary-action"
+                onClick={handleRequestEmailCode}
+                disabled={pendingAction === 'requestEmailCode'}
+              >
+                {pendingAction === 'requestEmailCode' ? '发送中...' : '获取验证码'}
+              </button>
             </div>
           )}
-          <button type="button" className="primary-action login-main-button" onClick={mode === 'password' ? handlePasswordLogin : handleVerifyEmail}>
-            {mode === 'password' ? '登录 / 注册' : '验证码登录'}
+          <button
+            type="button"
+            className="primary-action login-main-button"
+            onClick={mode === 'password' ? handlePasswordLogin : handleVerifyEmail}
+            disabled={Boolean(pendingAction)}
+          >
+            {pendingAction === 'password'
+              ? '登录中...'
+              : pendingAction === 'verifyEmailCode'
+                ? '验证中...'
+                : mode === 'password'
+                  ? '登录 / 注册'
+                  : '验证码登录'}
           </button>
         </div>
-        <div className="policy-list login-status-list">
+        <div className="policy-list login-status-list" role="status" aria-live="polite">
           <p>会话状态：{status || login.sessionStatus || '等待登录'}</p>
           <p>当前仅支持邮箱密码和邮箱验证码登录。</p>
         </div>
