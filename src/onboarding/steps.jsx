@@ -114,14 +114,15 @@ function LoginStep({
 
   const handlePasswordLogin = async () => {
     if (!loginWithPassword) return setLoginStatus('后端登录接口未启动。');
+    if (!login.acceptedTerms) return setLoginStatus('请先勾选同意服务条款和隐私说明。');
     if (!account) return setLoginStatus('请先输入邮箱。');
     if (!password) return setLoginStatus('请先输入密码。');
     try {
       setPendingAction('password');
       setLoginStatus('正在登录...');
       const payload = await loginWithPassword(account, password);
+      setLoginStatus('登录成功，正在进入上传简历。');
       onAuthChanged?.(payload);
-      setLoginStatus(`已登录：${payload.user?.email || payload.user?.phone || '当前账号'}`);
       onStepComplete?.();
     } catch (error) {
       setLoginStatus(error.message || '登录失败，请检查账号密码。');
@@ -132,6 +133,7 @@ function LoginStep({
 
   const handleRequestEmailCode = async () => {
     if (!requestEmailCode) return setLoginStatus('邮箱验证码接口未启动。');
+    if (!login.acceptedTerms) return setLoginStatus('请先勾选同意服务条款和隐私说明，再获取验证码。');
     if (!account) return setLoginStatus('请先输入邮箱。');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(account)) return setLoginStatus('请输入有效邮箱后再获取验证码。');
     try {
@@ -148,14 +150,15 @@ function LoginStep({
 
   const handleVerifyEmail = async () => {
     if (!verifyEmailCode) return setLoginStatus('邮箱验证码登录接口未启动。');
+    if (!login.acceptedTerms) return setLoginStatus('请先勾选同意服务条款和隐私说明。');
     if (!account) return setLoginStatus('请先输入邮箱。');
     if (!emailCode) return setLoginStatus('请先输入邮箱验证码。');
     try {
       setPendingAction('verifyEmailCode');
       setLoginStatus('正在验证...');
       const payload = await verifyEmailCode(account, emailCode);
+      setLoginStatus('登录成功，正在进入上传简历。');
       onAuthChanged?.(payload);
-      setLoginStatus(`已登录：${payload.user?.email || '当前账号'}`);
       onStepComplete?.();
     } catch (error) {
       setLoginStatus(error.message || '验证码不正确或已过期。');

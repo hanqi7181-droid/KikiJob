@@ -295,7 +295,7 @@ export function OnboardingWizard({
           <div className="bubble-panel-footer">Find. Match. Apply.</div>
         </aside>
 
-        <div className="onboarding-flow-panel">
+        <div className={`onboarding-flow-panel step-${currentStep.id}`}>
           <header className="onboarding-header">
             <div>
               <p className="eyebrow">Step {stepIndex + 1} of {onboardingSteps.length}</p>
@@ -345,7 +345,7 @@ export function OnboardingWizard({
             />
           </div>
 
-          {currentStep.id !== 'login' && (
+          {stepIndex > 0 && currentStep.id !== 'login' && (
             <footer className="onboarding-footer">
               <button className="secondary-action" type="button" onClick={goBack}>
                 上一步

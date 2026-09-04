@@ -147,27 +147,46 @@ function extractProfile(rawText) {
     .split(/\n+/)
     .map((line) => line.trim())
     .filter(Boolean);
+  const educationDetails = extractEducationDetails(lines, rawText, normalized);
+  const skillDetails = extractSkillDetails(lines, normalized);
 
   return {
-    name: extractName(lines),
+    name: extractName(lines, rawText),
+    email: extractEmail(rawText),
+    phone: extractPhone(rawText),
     fullText: normalized,
     education: pickLines(lines, ['大学', 'University', '硕士', '本科', '学士', 'Master', 'Bachelor', '商业人工智能']),
-    educationDetails: extractEducationDetails(lines),
+    educationDetails,
     workExperienceDetails: extractExperienceDetails(lines, '工作经历', '项目经历'),
     projectExperienceDetails: extractProjectDetails(lines),
     practiceDetails: extractPracticeDetails(lines),
     skills: extractSkills(normalized),
-    skillDetails: extractSkillDetails(lines),
+    skillDetails,
     experiences: pickLines(lines, ['实习', '项目', '算法', '产品', '分析', '竞赛', 'Intern', 'Project', 'AI', '数据']),
     languages: extractLanguages(normalized),
+    jobIntention: extractJobIntention(rawText),
     textLength: rawText.length,
     summary: normalized.slice(0, 1600),
   };
 }
 
-function extractName(lines) {
-  const candidate = lines.find((line) => /^[\u4e00-\u9fa5]{2,4}$/.test(line));
-  return candidate || lines[0] || '';
+function extractName(lines, rawText = lines.join('\n')) {
+  const joinedHead = lines.slice(0, 8).join(' ');
+  const labeled = pick(/(?:姓名|Name)[:：\s]+([\u4e00-\u9fa5]{2,8}|[A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+){0,2})/i, rawText);
+  if (labeled) return labeled;
+  const chineseName = lines.slice(0, 10).find((line) => /^[\u4e00-\u9fa5]{2,4}$/.test(line));
+  if (chineseName) return chineseName;
+  const inlineChinese = pick(/(^|[\s｜|])([\u4e00-\u9fa5]{2,4})(?=\s|$|[｜|])/u, joinedHead, 2);
+  if (inlineChinese && !/(大学|学院|硕士|本科|电话|邮箱|求职|教育)/.test(inlineChinese)) return inlineChinese;
+  return '';
+}
+
+function extractEmail(text) {
+  return pick(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i, text);
+}
+
+function extractPhone(text) {
+  return pick(/(?:\+?86[-\s]?)?1[3-9]\d[-\s]?\d{4}[-\s]?\d{4}/, text).replace(/\s|-/g, '');
 }
 
 function pickLines(lines, keywords) {
@@ -232,8 +251,8 @@ function stripDateRange(value) {
   return value.replace(/20\d{2}[./-]\d{1,2}\s*[-–—至]\s*(?:20\d{2}[./-]\d{1,2}|至今)/, '').trim();
 }
 
-function extractEducationDetails(lines) {
-  return splitDatedEntries(extractSection(lines, '教育背景', ['工作经历', '项目经历', '实践与荣誉', '专业技能'])).map((entry) => {
+function extractEducationDetails(lines, rawText = lines.join('\n'), normalized = lines.join(' ')) {
+  const sectionEntries = splitDatedEntries(extractSection(lines, '教育背景', ['工作经历', '项目经历', '实践与荣誉', '专业技能'])).map((entry) => {
     const parts = splitHeaderParts(entry.header);
     const { startDate, endDate } = parseDateRange(entry.header);
     const school = stripDateRange(parts[1] || parts[0] || '').replace(/[（(].*?[)）]/g, '').trim();
@@ -254,6 +273,48 @@ function extractEducationDetails(lines) {
       description: entry.details.join(' '),
     };
   });
+  if (sectionEntries.length) return sectionEntries;
+
+  const school = extractSchool(normalized);
+  const degree = extractDegree(normalized);
+  const major = extractMajor(rawText || normalized);
+  return school || degree || major
+    ? [
+        {
+          school,
+          degree,
+          major,
+          startDate: '',
+          endDate: '',
+          ranking: '',
+          courses: '',
+          description: [school, degree, major].filter(Boolean).join(' '),
+        },
+      ]
+    : [];
+}
+
+function extractSchool(text) {
+  return pick(/([\u4e00-\u9fa5A-Za-z\s]+?(?:大学|学院|University|College|Institute))/i, text)
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function extractDegree(text) {
+  return pick(/(博士|硕士|研究生|本科|学士|Master|MSc|MA|Bachelor|BSc|BA|PhD)/i, text);
+}
+
+function extractMajor(text) {
+  const labeled = pick(/(?:专业|Major)[:：\s]+([^\n。；;]{2,30})/i, text);
+  if (labeled) return cleanupMajor(labeled);
+  return cleanupMajor(pick(/(商业人工智能|人工智能|计算机科学与技术|软件工程|数据科学|金融科技|工商管理|市场营销|统计学|数学与应用数学)/, text));
+}
+
+function cleanupMajor(value = '') {
+  return String(value)
+    .replace(/(目标岗位|求职意向|意向岗位|技能|邮箱|电话|教育背景).*$/i, '')
+    .replace(/(硕士|本科|学士|博士|Master|Bachelor|PhD).*$/i, '')
+    .trim();
 }
 
 function extractExperienceDetails(lines, startHeading, endHeading) {
@@ -308,15 +369,19 @@ function extractPracticeDetails(lines) {
     });
 }
 
-function extractSkillDetails(lines) {
+function extractSkillDetails(lines, normalized = lines.join(' ')) {
   const skillLines = extractSection(lines, '专业技能', []);
   const findLine = (keyword) => skillLines.find((line) => line.includes(keyword)) || '';
   return {
-    programming: findLine('编程开发').replace(/^.*?[:：]/, '').trim(),
-    data: findLine('数据技术').replace(/^.*?[:：]/, '').trim(),
-    product: 'Axure、Photoshop、Office办公套件、产品原型设计、需求评审、用户体验地图',
-    languages: findLine('语言能力').replace(/^.*?[:：]/, '').trim(),
+    programming: findLine('编程开发').replace(/^.*?[:：]/, '').trim() || extractSkillBucket(normalized, ['Python', 'JavaScript', 'TypeScript', 'SQL', 'React', 'Node.js']),
+    data: findLine('数据技术').replace(/^.*?[:：]/, '').trim() || extractSkillBucket(normalized, ['Pandas', 'Numpy', 'Tableau', 'Power BI', '机器学习', '深度学习', '数据分析']),
+    product: extractSkillBucket(normalized, ['Axure', 'Figma', 'Photoshop', 'Office', '产品原型', '需求分析', '用户体验']),
+    languages: findLine('语言能力').replace(/^.*?[:：]/, '').trim() || extractLanguages(normalized).join('、'),
   };
+}
+
+function extractSkillBucket(text, terms) {
+  return terms.filter((term) => text.toLowerCase().includes(term.toLowerCase())).join('、');
 }
 
 function extractSkills(text) {
@@ -338,6 +403,10 @@ function extractSkills(text) {
     'Excel',
     'Pandas',
     'Numpy',
+    'React',
+    'Node.js',
+    'Figma',
+    'Axure',
   ];
 
   return skillTerms.filter((term) => text.toLowerCase().includes(term.toLowerCase()));
@@ -351,9 +420,18 @@ function extractLanguages(text) {
   return languages;
 }
 
-function pick(pattern, text = '') {
-  const match = text.match(pattern);
-  return match ? match[1] || match[0] : '';
+function extractJobIntention(text) {
+  const labeled = pick(/(?:求职意向|目标岗位|意向岗位|岗位意向)[:：\s]+([^。；;\n]{2,80})/i, text);
+  if (labeled) return labeled.trim();
+  return extractSkills(text)
+    .filter((skill) => /产品经理|数据分析|商业分析|算法工程师|机器学习|计算机视觉|AI/.test(skill))
+    .slice(0, 4)
+    .join('、');
+}
+
+function pick(pattern, text = '', groupIndex = 1) {
+  const match = String(text).match(pattern);
+  return match ? match[groupIndex] || match[1] || match[0] : '';
 }
 
 function readRequestBuffer(request) {

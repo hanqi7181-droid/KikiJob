@@ -7,16 +7,18 @@ export async function persistResumeFile({ fileBuffer, safeName, localPath, userI
     const bucket = process.env.SUPABASE_STORAGE_BUCKET || 'resumes';
     const storagePath = buildResumeStoragePath({ userId, safeName });
     await ensureSupabaseStorageBucket(bucket);
-    await uploadToSupabaseStorage({
+    const finalStoragePath = await uploadWithSafeKeyRetry({
       bucket,
       storagePath,
       fileBuffer,
       contentType: contentTypeForFile(safeName),
+      userId,
+      safeName,
     });
     writeFileSync(localPath, fileBuffer);
     return {
       storedPath: localPath,
-      storagePath,
+      storagePath: finalStoragePath,
       fileType: contentTypeForFile(safeName),
       fileSize: fileBuffer.length,
       storageProvider: 'supabase',
@@ -83,10 +85,12 @@ export async function ensureSupabaseStorageBucket(bucket = process.env.SUPABASE_
   return { provider: 'supabase', bucket: bucketId, created: createResponse.ok };
 }
 
-function buildResumeStoragePath({ userId, safeName }) {
+function buildResumeStoragePath({ userId, safeName, retry = false }) {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const extension = extname(safeName).toLowerCase() || '.bin';
-  return `${userId || 'anonymous'}/${timestamp}-${randomUUID()}${extension}`;
+  const userSegment = String(userId || 'anonymous').replace(/[^A-Za-z0-9_-]/g, '_');
+  const prefix = retry ? 'retry' : 'resume';
+  return `${userSegment}/${prefix}-${timestamp}-${randomUUID()}${extension}`;
 }
 
 async function uploadToSupabaseStorage({ bucket, storagePath, fileBuffer, contentType }) {
@@ -107,8 +111,27 @@ async function uploadToSupabaseStorage({ bucket, storagePath, fileBuffer, conten
 
   if (!response.ok) {
     const text = await response.text().catch(() => '');
-    throw new Error(`Supabase Storage 上传失败：${response.status} ${text.slice(0, 160)}`);
+    const error = new Error(`Supabase Storage 上传失败：${response.status} ${text.slice(0, 160)}`);
+    error.status = response.status;
+    error.responseText = text;
+    throw error;
   }
+}
+
+async function uploadWithSafeKeyRetry({ bucket, storagePath, fileBuffer, contentType, userId, safeName }) {
+  try {
+    await uploadToSupabaseStorage({ bucket, storagePath, fileBuffer, contentType });
+    return storagePath;
+  } catch (error) {
+    if (!isInvalidStorageKeyError(error)) throw error;
+    const retryPath = buildResumeStoragePath({ userId, safeName, retry: true });
+    await uploadToSupabaseStorage({ bucket, storagePath: retryPath, fileBuffer, contentType });
+    return retryPath;
+  }
+}
+
+function isInvalidStorageKeyError(error) {
+  return error?.status === 400 && /InvalidKey|Invalid key/i.test(error.responseText || error.message || '');
 }
 
 function encodeStoragePath(storagePath) {

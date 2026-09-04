@@ -6780,6 +6780,10 @@ body,
   place-items: center;
 }
 
+.onboarding-flow-panel.step-login .onboarding-footer {
+  display: none !important;
+}
+
 .login-template-card {
   display: grid;
   gap: 16px;

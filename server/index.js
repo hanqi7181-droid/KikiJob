@@ -35,6 +35,7 @@ const server = http.createServer(async (request, response) => {
       return sendJson(response, 200, {
         ok: true,
         service: 'kikijob-api',
+        release: 'resume-safe-key-v2',
         database: database.provider,
         databasePath: database.provider === 'sqlite' ? database.path : undefined,
         storage: process.env.SUPABASE_URL ? 'supabase-configured' : 'local',
