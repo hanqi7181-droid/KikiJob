@@ -328,6 +328,7 @@ export function OnboardingWizard({
               authUser={authUser}
               loginWithPassword={loginWithPassword}
               onAuthChanged={onAuthChanged}
+              onStepComplete={() => setStepIndex((current) => Math.max(current, 1))}
               requestEmailCode={requestEmailCode}
               setField={setField}
               setProfileCollection={setProfileCollection}
@@ -344,17 +345,19 @@ export function OnboardingWizard({
             />
           </div>
 
-          <footer className="onboarding-footer">
-            <button className="secondary-action" type="button" onClick={goBack} disabled={stepIndex === 0}>
-              上一步
-            </button>
-            <button className="secondary-action" type="button" onClick={saveAndClose}>
-              保存草稿
-            </button>
-            <button className="primary-action" type="button" onClick={goNext}>
-              {stepIndex === onboardingSteps.length - 1 ? '进入 KikiJob' : '下一步'}
-            </button>
-          </footer>
+          {currentStep.id !== 'login' && (
+            <footer className="onboarding-footer">
+              <button className="secondary-action" type="button" onClick={goBack}>
+                上一步
+              </button>
+              <button className="secondary-action" type="button" onClick={saveAndClose}>
+                保存草稿
+              </button>
+              <button className="primary-action" type="button" onClick={goNext}>
+                {stepIndex === onboardingSteps.length - 1 ? '进入 KikiJob' : '下一步'}
+              </button>
+            </footer>
+          )}
         </div>
       </section>
     </div>

@@ -134,9 +134,18 @@ function App() {
         setAuthUser(payload.user || null);
         setApiState(connectedText);
       })
-      .catch(() => {
+      .catch((error) => {
         if (!isMounted) return;
-        setApiState('后端未启动，当前使用前端演示数据');
+        if (error.status === 401) {
+          setAuthUser(null);
+          saveAuthToken('');
+          saveOnboardingCompleted(false);
+          saveOnboardingStep(0);
+          setOnboardingCompleted(false);
+          setApiState('请先登录后继续');
+        } else {
+          setApiState('后端未启动，当前使用前端演示数据');
+        }
       })
       .finally(() => {
         if (isMounted) hasBootstrapped.current = true;

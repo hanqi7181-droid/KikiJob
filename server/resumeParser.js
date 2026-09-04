@@ -7,7 +7,7 @@ import { persistResumeFile } from './storage.js';
 const execFileAsync = promisify(execFile);
 const projectRoot = join(import.meta.dirname, '..');
 const uploadDir = join(projectRoot, 'uploads');
-const pythonPath = 'C:\\Users\\HUAWEI\\AppData\\Local\\Programs\\Python\\Python311\\python.exe';
+const pythonPath = process.env.PYTHON_PATH || process.env.PYTHON || 'python3';
 const pdfExtractScript = join(import.meta.dirname, 'scripts', 'extract_pdf_text.py');
 const maxUploadBytes = Number(process.env.MAX_RESUME_UPLOAD_BYTES || 8 * 1024 * 1024);
 
@@ -26,14 +26,34 @@ export async function parseResumeFile(filePath) {
   let rawText = '';
 
   if (extension === '.pdf') {
-    rawText = await extractPdfText(filePath);
+    rawText = await extractPdfText(filePath).catch((error) => {
+      console.warn(`[resume-parser] PDF text extraction failed: ${error.message}`);
+      return '';
+    });
   } else if (['.txt', '.md'].includes(extension)) {
     rawText = readFileSync(filePath, 'utf8');
   } else {
     throw new Error('Current parser supports PDF, TXT, and Markdown files');
   }
 
-  const parsedProfile = extractProfile(rawText);
+  const parsedProfile = rawText
+    ? extractProfile(rawText)
+    : {
+        name: '',
+        fullText: '',
+        education: [],
+        educationDetails: [],
+        workExperienceDetails: [],
+        projectExperienceDetails: [],
+        practiceDetails: [],
+        skills: [],
+        skillDetails: [],
+        experiences: [],
+        languages: [],
+        textLength: 0,
+        summary: '简历文件已保存，但当前运行环境未能提取 PDF 文本。请在下一步手动补充或确认资料。',
+        parseWarning: 'PDF_TEXT_EXTRACTION_FAILED',
+      };
   return { rawText, parsedProfile };
 }
 
@@ -103,7 +123,7 @@ function validateResumeUpload(fileName, fileBuffer) {
 }
 
 async function extractPdfText(filePath) {
-  if (!existsSync(pythonPath)) {
+  if (looksLikeFilePath(pythonPath) && !existsSync(pythonPath)) {
     throw new Error('Python executable was not found');
   }
 
@@ -115,6 +135,10 @@ async function extractPdfText(filePath) {
   });
 
   return stdout.replace(/\r\n/g, '\n').trim();
+}
+
+function looksLikeFilePath(value) {
+  return /[\\/]/.test(value) || /^[A-Za-z]:/.test(value);
 }
 
 function extractProfile(rawText) {

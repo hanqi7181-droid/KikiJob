@@ -125,7 +125,9 @@ export async function uploadResume(file) {
 
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
-    throw new Error(payload.error || `Resume upload failed: ${response.status}`);
+    const error = new Error(payload.error || `Resume upload failed: ${response.status}`);
+    error.status = response.status;
+    throw error;
   }
 
   return response.json();
@@ -196,7 +198,9 @@ async function request(path, options = {}) {
 
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
-    throw new Error(payload.error || `API request failed: ${response.status}`);
+    const error = new Error(payload.error || `API request failed: ${response.status}`);
+    error.status = response.status;
+    throw error;
   }
 
   return response.json();

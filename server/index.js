@@ -30,9 +30,6 @@ const server = http.createServer(async (request, response) => {
       return;
     }
 
-    const currentUser = await getCurrentUser(request);
-    const currentUserId = currentUser?.id || defaultUserId;
-
     if (request.method === 'GET' && (url.pathname === '/api/health' || url.pathname === '/health')) {
       const database = repo.getDatabaseInfo();
       return sendJson(response, 200, {
@@ -91,6 +88,12 @@ const server = http.createServer(async (request, response) => {
       }
       return sendJson(response, 501, { error: `${provider} OAuth 回调尚未接入生产环境` });
     }
+
+    const currentUser = await getCurrentUser(request);
+    if (!currentUser && requiresAuthenticatedUser(request, url)) {
+      return sendJson(response, 401, { error: '请先登录后再继续' });
+    }
+    const currentUserId = currentUser?.id || defaultUserId;
 
     if (request.method === 'GET' && url.pathname === '/api/bootstrap') {
       await repo.ensureDefaultUser();
@@ -306,6 +309,21 @@ function readBearerToken(request) {
 
 function isAuthMutation(request, url) {
   return request.method === 'POST' && url.pathname.startsWith('/api/auth/') && url.pathname !== '/api/auth/logout';
+}
+
+function requiresAuthenticatedUser(request, url) {
+  if (process.env.NODE_ENV !== 'production' && process.env.REQUIRE_AUTH !== 'true') return false;
+  if (url.pathname.startsWith('/api/auth/')) return false;
+  if (request.method === 'GET' && (url.pathname === '/api/jobs' || url.pathname === '/api/health' || url.pathname === '/health')) {
+    return false;
+  }
+  return url.pathname.startsWith('/api/bootstrap') ||
+    url.pathname.startsWith('/api/profile') ||
+    url.pathname.startsWith('/api/form-mappings') ||
+    url.pathname.startsWith('/api/applications') ||
+    url.pathname.startsWith('/api/resumes') ||
+    url.pathname.startsWith('/api/jobs/import-recommendations') ||
+    url.pathname.startsWith('/api/autofill/run');
 }
 
 function readJson(request) {

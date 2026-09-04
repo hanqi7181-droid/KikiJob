@@ -94,6 +94,7 @@ function LoginStep({
   errors,
   loginWithPassword,
   onAuthChanged,
+  onStepComplete,
   requestEmailCode,
   setField,
   verifyEmailCode,
@@ -121,6 +122,7 @@ function LoginStep({
       const payload = await loginWithPassword(account, password);
       onAuthChanged?.(payload);
       setLoginStatus(`已登录：${payload.user?.email || payload.user?.phone || '当前账号'}`);
+      onStepComplete?.();
     } catch (error) {
       setLoginStatus(error.message || '登录失败，请检查账号密码。');
     } finally {
@@ -154,6 +156,7 @@ function LoginStep({
       const payload = await verifyEmailCode(account, emailCode);
       onAuthChanged?.(payload);
       setLoginStatus(`已登录：${payload.user?.email || '当前账号'}`);
+      onStepComplete?.();
     } catch (error) {
       setLoginStatus(error.message || '验证码不正确或已过期。');
     } finally {
