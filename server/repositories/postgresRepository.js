@@ -1,5 +1,4 @@
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
-import { initialProfile } from '../../src/data/demoData.js';
 import { buildStandardFormMappings } from '../../src/data/standardFormMappings.js';
 import { createPostgresRuntimeAdapter } from '../db/postgres.js';
 import { sendVerificationEmail } from '../email.js';
@@ -151,7 +150,7 @@ async function getProfile(runtime, userId) {
     [userId]
   );
   const profile = parseJsonValue(result.rows[0]?.profile_json, null);
-  return profile && Object.keys(profile).length ? profile : initialProfile;
+  return profile && Object.keys(profile).length ? profile : buildEmptyProfile();
 }
 
 async function listJobs(runtime) {
@@ -308,6 +307,7 @@ async function findUserByEmail(runtime, email) {
 
 async function createLocalUser(runtime, email, password) {
   const cleanEmail = normalizeEmail(email);
+  const profile = buildEmptyProfile(cleanEmail);
   const result = await runtime.query(
     `INSERT INTO users (name, email, identity, password_hash, auth_provider, auth_subject)
      VALUES ($1, $2, $3, $4, 'local', $2)
@@ -315,12 +315,12 @@ async function createLocalUser(runtime, email, password) {
     [
       cleanEmail.split('@')[0],
       cleanEmail,
-      initialProfile.identity,
+      profile.identity,
       password ? hashSecret(password) : null,
     ]
   );
   const user = result.rows[0];
-  await saveProfile(runtime, user.id, { ...initialProfile, email: cleanEmail, phone: '' });
+  await saveProfile(runtime, user.id, profile);
   return user;
 }
 
@@ -564,18 +564,8 @@ async function deleteFormMappings(runtime, userId) {
 }
 
 async function clearProfileData(runtime, userId) {
-  const emptyProfile = {
-    ...initialProfile,
-    resumeName: '',
-    name: '',
-    email: '',
-    phone: '',
-    education: [],
-    experiences: [],
-    projects: [],
-    practice: [],
-    skills: {},
-  };
+  const current = await getProfile(runtime, userId);
+  const emptyProfile = buildEmptyProfile(current.email || '');
   await runtime.query('DELETE FROM resumes WHERE user_id = $1', [userId]);
   await runtime.query('DELETE FROM form_mappings WHERE user_id = $1', [userId]);
   await runtime.query('DELETE FROM applications WHERE user_id = $1', [userId]);
@@ -739,6 +729,30 @@ function normalizeEmail(email) {
 
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function buildEmptyProfile(email = '') {
+  return {
+    resumeName: '',
+    identity: '应届毕业生',
+    name: '',
+    email,
+    phone: '',
+    goals: [],
+    roles: '',
+    cities: [],
+    salaryIntern: '',
+    salaryGraduate: '',
+    industries: [],
+    accounts: [],
+    companyTypes: [],
+    allowTailor: true,
+    education: [],
+    experiences: [],
+    projects: [],
+    practice: [],
+    skills: {},
+  };
 }
 
 function unsupportedMutation(methodName) {

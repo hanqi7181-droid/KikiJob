@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { initialProfile } from '../../src/data/demoData.js';
 import { createPostgresRepository } from './postgresRepository.js';
 
 function createRuntime(handler) {
@@ -54,7 +53,7 @@ test('PostgreSQL repository exposes the server persistence contract', () => {
   }
 });
 
-test('PostgreSQL repository reads profile_json and falls back to initialProfile', async () => {
+test('PostgreSQL repository reads profile_json and falls back to an empty user profile', async () => {
   const profile = { name: 'Kiki', targetRoles: ['AI 产品经理'] };
   const runtime = createRuntime((sql, params) => {
     assert.match(sql, /FROM user_profiles/);
@@ -68,7 +67,12 @@ test('PostgreSQL repository reads profile_json and falls back to initialProfile'
   const emptyRepo = createPostgresRepository({
     runtime: createRuntime(() => ({ rows: [] })),
   });
-  assert.deepEqual(await emptyRepo.getProfile(42), initialProfile);
+  const fallback = await emptyRepo.getProfile(42);
+  assert.equal(fallback.identity, '应届毕业生');
+  assert.equal(fallback.resumeName, '');
+  assert.equal(fallback.roles, '');
+  assert.deepEqual(fallback.cities, []);
+  assert.deepEqual(fallback.goals, []);
 });
 
 test('PostgreSQL repository maps jobs to the existing frontend job shape', async () => {

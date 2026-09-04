@@ -56,7 +56,13 @@ import { evaluateJobMatch } from './data/matching.js';
 import { generateCareerSiteTasks } from './data/searchTasks.js';
 import { buildStandardFormMappings, normalizeProfileData } from './data/standardFormMappings.js';
 import { OnboardingWizard } from './onboarding/OnboardingWizard.jsx';
-import { readOnboardingCompleted, saveOnboardingCompleted, saveOnboardingStep } from './onboarding/onboardingState.js';
+import {
+  defaultOnboardingState,
+  readOnboardingCompleted,
+  saveOnboardingCompleted,
+  saveOnboardingDraft,
+  saveOnboardingStep,
+} from './onboarding/onboardingState.js';
 import './styles.css';
 
 const connectedText = 'connected';
@@ -93,6 +99,30 @@ function routeFromHash() {
     return 'recommend';
   }
   return normalizeRoute(rawRoute);
+}
+
+function createEmptyClientProfile(email = '') {
+  return {
+    resumeName: '',
+    identity: '应届毕业生',
+    name: '',
+    email,
+    phone: '',
+    goals: [],
+    roles: '',
+    cities: [],
+    salaryIntern: '',
+    salaryGraduate: '',
+    industries: [],
+    accounts: [],
+    companyTypes: [],
+    allowTailor: true,
+    education: [],
+    experiences: [],
+    projects: [],
+    practice: [],
+    skills: {},
+  };
 }
 
 function App() {
@@ -485,7 +515,15 @@ function App() {
   const handleLogout = async () => {
     await logoutFromApi().catch(() => saveAuthToken(''));
     setAuthUser(null);
+    setProfile(createEmptyClientProfile());
+    setParsedResume(null);
+    setResumeVersions([]);
+    setStatusMap({});
+    setApplicationDetails({});
+    setCustomMappings(null);
+    saveOnboardingDraft(defaultOnboardingState);
     saveOnboardingCompleted(false);
+    saveOnboardingStep(0);
     setOnboardingCompleted(false);
     setActiveTab('recommend');
     setApiState('已退出登录，可用新账号体验普通用户流程');
@@ -676,6 +714,7 @@ function App() {
 
       {!onboardingCompleted && (
         <OnboardingWizard
+          key={authUser?.id || 'guest'}
           appProfile={profile}
           authUser={authUser}
           loginWithPassword={loginWithPassword}
@@ -685,11 +724,10 @@ function App() {
           uploadResume={uploadResume}
           verifyEmailCode={verifyEmailCode}
           onAuthChanged={(payload) => {
-            setAuthUser(payload?.user || null);
             setApiState(connectedText);
             fetchBootstrap()
               .then((nextPayload) => {
-                setProfile(nextPayload.profile || initialProfile);
+                setProfile(nextPayload.profile || createEmptyClientProfile());
                 setJobs(nextPayload.jobs || []);
                 setStatusMap(nextPayload.applications || {});
                 setApplicationDetails(nextPayload.applicationDetails || {});
@@ -697,6 +735,8 @@ function App() {
                 setParsedResume(nextPayload.latestResume?.parsedProfile || null);
                 setResumeVersions(nextPayload.resumes || (nextPayload.latestResume ? [nextPayload.latestResume] : []));
                 setAuthUser(nextPayload.user || payload?.user || null);
+                saveOnboardingDraft(defaultOnboardingState);
+                saveOnboardingStep(1);
               })
               .catch(() => {});
           }}

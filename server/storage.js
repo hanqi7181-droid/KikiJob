@@ -1,5 +1,6 @@
 import { writeFileSync } from 'node:fs';
 import { extname } from 'node:path';
+import { randomUUID } from 'node:crypto';
 
 export async function persistResumeFile({ fileBuffer, safeName, localPath, userId }) {
   if (isSupabaseStorageConfigured()) {
@@ -84,7 +85,8 @@ export async function ensureSupabaseStorageBucket(bucket = process.env.SUPABASE_
 
 function buildResumeStoragePath({ userId, safeName }) {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  return `${userId || 'anonymous'}/${timestamp}-${safeName}`;
+  const extension = extname(safeName).toLowerCase() || '.bin';
+  return `${userId || 'anonymous'}/${timestamp}-${randomUUID()}${extension}`;
 }
 
 async function uploadToSupabaseStorage({ bucket, storagePath, fileBuffer, contentType }) {
