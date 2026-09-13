@@ -4085,7 +4085,7 @@ textarea:focus {
 .autofill-table-head,
 .autofill-row {
   display: grid;
-  grid-template-columns: minmax(190px, 1fr) 88px minmax(180px, 0.8fr) minmax(240px, 1fr) 92px;
+  grid-template-columns: minmax(180px, 1fr) 78px minmax(170px, 0.8fr) minmax(220px, 1fr) 88px 92px;
   gap: 10px;
   align-items: start;
 }
@@ -4150,6 +4150,30 @@ textarea:focus {
 .confidence.low {
   background: #fff5f5;
   color: #a63232;
+}
+
+.confirm-save-state {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  border: 1px solid rgba(3, 175, 84, 0.24);
+  border-radius: 999px;
+  background: var(--color-green-soft);
+  color: var(--color-green);
+  padding: 8px 12px;
+  font-weight: 900;
+}
+
+.confirm-field-button {
+  width: 100%;
+  min-height: 34px;
+  padding: 0 10px;
+}
+
+.confirm-field-button.confirmed {
+  border-color: rgba(3, 175, 84, 0.3);
+  background: var(--color-green-soft);
+  color: var(--color-green);
 }
 
 .autofill-actions {

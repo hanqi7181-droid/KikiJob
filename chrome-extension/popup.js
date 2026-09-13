@@ -1,4 +1,4 @@
-const API_BASE_URL = (window.JobPilotConfig?.API_BASE_URL || 'http://localhost:8787/api').replace(/\/$/, '');
+const API_BASE_URL = (window.JobPilotConfig?.API_BASE_URL || 'http://localhost:8788/api').replace(/\/$/, '');
 
 const packageInput = document.querySelector('#packageInput');
 const scanButton = document.querySelector('#scanButton');
@@ -19,8 +19,20 @@ let learnedMappings = [];
 let formMappingsPayload = [];
 let profileCandidatesPayload = [];
 
-function setStatus(text) {
+function setStatus(text, tone = '') {
   statusBox.textContent = text;
+  statusBox.className = `status${tone ? ` ${tone}` : ''}`;
+}
+
+function markButtonDone(button, text = '') {
+  if (!button) return;
+  const originalText = button.textContent;
+  button.classList.add('success');
+  if (text) button.textContent = text;
+  window.setTimeout(() => {
+    button.classList.remove('success');
+    button.textContent = originalText;
+  }, 1300);
 }
 
 function renderResults(items = [], mode = 'result') {
@@ -83,7 +95,8 @@ function debugControls(debugReport) {
   button.textContent = '复制 Debug';
   button.addEventListener('click', async () => {
     await navigator.clipboard.writeText(debugReport);
-    setStatus('已复制 Debug Report');
+    setStatus('已复制 Debug Report', 'success');
+    markButtonDone(button, '已复制');
   });
 
   const details = document.createElement('pre');
@@ -113,10 +126,11 @@ function mappingControls(field) {
   button.addEventListener('click', async () => {
     const candidate = candidateFields().find((item) => item.id === select.value);
     if (!candidate) {
-      setStatus('请先选择一个标准字段');
+      setStatus('请先选择一个标准字段', 'error');
       return;
     }
     await confirmMapping(field, candidate);
+    markButtonDone(button, '已确认');
   });
 
   wrapper.append(select, button);
@@ -138,7 +152,8 @@ function learnedRow(mapping) {
     learnedMappings = learnedMappings.filter((item) => item.id !== mapping.id);
     await persistLearnedMappings();
     renderResults(learnedMappings, 'learned');
-    setStatus('已删除学习映射');
+    setStatus('已删除学习映射', 'success');
+    markButtonDone(button, '已删除');
   });
   row.appendChild(button);
   return row;
@@ -181,14 +196,14 @@ async function confirmMapping(field, candidate) {
   };
 
   if (sensitive) {
-    setStatus('敏感字段已记住为候选，但不会默认自动填写');
+    setStatus('敏感字段已确认并记住为候选，但不会默认自动填写', 'success');
     renderResults([{ ...field, status: 'needs_confirmation', reason: '敏感字段需要每次人工确认', mappingSource: '人工选择' }]);
     return;
   }
 
   const response = await sendToTab({ type: 'AUTO_CV_FILL_ONE_FIELD', step });
   const summary = response.summary || {};
-  setStatus(`已保存映射并填写：成功 ${summary.success || 0}，跳过 ${summary.skipped || 0}，失败 ${summary.failed || 0}`);
+  setStatus(`已确认并保存映射：成功 ${summary.success || 0}，跳过 ${summary.skipped || 0}，失败 ${summary.failed || 0}`, 'success');
   renderResults(response.results || []);
 }
 
@@ -471,7 +486,7 @@ async function sendToTab(message) {
   }
 }
 
-scanButton.addEventListener('click', async () => {
+scanButton?.addEventListener('click', async () => {
   try {
     await loadMappings();
     setStatus('正在扫描当前页...');
@@ -479,14 +494,15 @@ scanButton.addEventListener('click', async () => {
     const response = await sendToTab({ type: 'AUTO_CV_SCAN_FIELDS' });
     lastScan = { fields: response.fields || [], url: response.url || tab.url, adapter: response.adapter || 'generic' };
     const fields = applyLearnedMappings(lastScan.fields, lastScan.url);
-    setStatus(`检测到 ${fields.length} 个字段。适配器：${lastScan.adapter}。已学习映射 ${learnedMappings.length} 条。`);
+    setStatus(`扫描完成：检测到 ${fields.length} 个字段。复制扫描 JSON 后回到 KikiJob 粘贴。`, 'success');
+    markButtonDone(scanButton, '已扫描');
     renderResults(fields);
   } catch (error) {
-    setStatus(error.message || '扫描失败');
+    setStatus(error.message || '扫描失败', 'error');
   }
 });
 
-copyScanButton.addEventListener('click', async () => {
+copyScanButton?.addEventListener('click', async () => {
   try {
     if (!lastScan.fields?.length) {
       await loadMappings();
@@ -502,67 +518,69 @@ copyScanButton.addEventListener('click', async () => {
       fields: lastScan.fields || [],
     };
     await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
-    setStatus(`已复制扫描 JSON：${payload.fields.length} 个字段。回到前端“扩展真实扫描 JSON”粘贴即可。`);
+    setStatus(`已复制扫描 JSON：${payload.fields.length} 个字段。回到 KikiJob“扩展真实扫描 JSON”粘贴即可。`, 'success');
+    markButtonDone(copyScanButton, '已复制');
   } catch (error) {
-    setStatus(error.message || '复制扫描 JSON 失败');
+    setStatus(error.message || '复制扫描 JSON 失败', 'error');
   }
 });
 
-fillButton.addEventListener('click', async () => {
+fillButton?.addEventListener('click', async () => {
   try {
     const steps = parsePackage();
     setStatus('正在填充当前页...');
     const response = await sendToTab({ type: 'AUTO_CV_FILL_STEPS', steps });
     const summary = response.summary || {};
-    setStatus(`已尝试预填：成功 ${summary.success || 0}，跳过 ${summary.skipped || 0}，失败 ${summary.failed || 0}。请逐项检查，确认无误后再手动提交。`);
+    setStatus(`填充完成：成功 ${summary.success || 0}，跳过 ${summary.skipped || 0}，失败 ${summary.failed || 0}。请逐项检查，确认无误后再手动提交。`, 'success');
+    markButtonDone(fillButton, '已填充');
     renderResults(response.results || []);
     exportMokaAutofillDebugReport(response.results || []);
   } catch (error) {
-    setStatus(error.message || '填充失败');
+    setStatus(error.message || '填充失败', 'error');
   }
 });
 
-learnedButton.addEventListener('click', async () => {
+learnedButton?.addEventListener('click', async () => {
   await loadMappings();
   setStatus(`已学习映射 ${learnedMappings.length} 条。默认优先级：页面临时 > 当前域名 > ATS 平台 > 全局同义词。`);
   renderResults(learnedMappings, 'learned');
 });
 
-watchButton.addEventListener('click', async () => {
+watchButton?.addEventListener('click', async () => {
   try {
     const response = await sendToTab({ type: 'AUTO_CV_START_DYNAMIC_WATCH' });
     setStatus(`已开始监听动态表单。当前步骤数：${response.dynamic?.steps?.length || 0}`);
     renderDynamicSteps(response.dynamic?.steps || []);
   } catch (error) {
-    setStatus(error.message || '启动监听失败');
+    setStatus(error.message || '启动监听失败', 'error');
   }
 });
 
-watchStatusButton.addEventListener('click', async () => {
+watchStatusButton?.addEventListener('click', async () => {
   try {
     const response = await sendToTab({ type: 'AUTO_CV_DYNAMIC_STATUS' });
     setStatus(response.dynamic?.running ? '动态表单监听中' : '动态表单未监听');
     renderDynamicSteps(response.dynamic?.steps || []);
   } catch (error) {
-    setStatus(error.message || '读取步骤统计失败');
+    setStatus(error.message || '读取步骤统计失败', 'error');
   }
 });
 
-stopWatchButton.addEventListener('click', async () => {
+stopWatchButton?.addEventListener('click', async () => {
   try {
     const response = await sendToTab({ type: 'AUTO_CV_STOP_DYNAMIC_WATCH' });
     setStatus(`已停止监听。记录步骤数：${response.dynamic?.steps?.length || 0}`);
     renderDynamicSteps(response.dynamic?.steps || []);
   } catch (error) {
-    setStatus(error.message || '停止监听失败');
+    setStatus(error.message || '停止监听失败', 'error');
   }
 });
 
-exportMokaSchemaButton.addEventListener('click', async () => {
+exportMokaSchemaButton?.addEventListener('click', async () => {
   await exportMokaSchema(false);
 });
 
-probeMokaSchemaButton.addEventListener('click', async () => {
+probeMokaSchemaButton?.addEventListener('click', async () => {
   await exportMokaSchema(true);
 });
 
@@ -581,7 +599,7 @@ async function exportMokaSchema(probeComponents) {
     );
     renderResults(schemaSummaryRows(summary));
   } catch (error) {
-    setStatus(error.message || '导出 MokaHR 页面结构失败');
+    setStatus(error.message || '导出 MokaHR 页面结构失败', 'error');
   }
 }
 

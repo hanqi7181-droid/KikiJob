@@ -3235,6 +3235,15 @@ function AssistScanStep({
   targetUrl,
   updateAutofillField,
 }) {
+  const [confirmNotice, setConfirmNotice] = useState('');
+  const confirmField = (field) => {
+    updateAutofillField(field.id, {
+      confidence: '人工确认',
+      instruction: field.instruction === '需要人工选择字段' ? '用户已确认字段和值' : `${field.instruction || '字段已确认'}；用户已确认`,
+    });
+    setConfirmNotice(`已确认：${field.label}`);
+  };
+
   return (
     <div className="assist-step-content">
       <StepHeadingLite title="扫描字段并映射资料" text="推荐：在 Chrome 扩展点击“扫描当前页”，复制扫描 JSON 后粘贴到这里。" />
@@ -3259,6 +3268,7 @@ function AssistScanStep({
 
       {autofillPreview ? (
         <>
+          {confirmNotice && <div className="save-state confirm-save-state">{confirmNotice}</div>}
           <div className="autofill-summary">
             <Metric icon={<Globe2 />} label="检测字段" value={summary.total} />
             <Metric icon={<CheckCircle2 />} label="已匹配" value={summary.matched} />
@@ -3272,6 +3282,7 @@ function AssistScanStep({
               <span>匹配资料</span>
               <span>待填值</span>
               <span>置信度</span>
+              <span>确认</span>
             </div>
             {autofillPreview.fields.map((field) => (
               <article className="autofill-row" key={field.id}>
@@ -3309,6 +3320,14 @@ function AssistScanStep({
                 <span className={`confidence ${field.confidence === '高' ? 'high' : field.confidence === '未匹配' ? 'low' : 'medium'}`}>
                   {field.confidence}
                 </span>
+                <button
+                  type="button"
+                  className={field.confidence === '人工确认' ? 'secondary-action confirm-field-button confirmed' : 'secondary-action confirm-field-button'}
+                  onClick={() => confirmField(field)}
+                  disabled={!field.value && !field.matchedSourceLabel}
+                >
+                  {field.confidence === '人工确认' ? '已确认' : '确认'}
+                </button>
               </article>
             ))}
           </div>

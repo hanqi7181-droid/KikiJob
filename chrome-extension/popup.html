@@ -9,13 +9,13 @@
   <body>
     <main>
       <header>
-        <strong>Auto CV Autofill</strong>
-        <span>只填当前页，不自动提交</span>
+        <strong>KikiJob 填表助手</strong>
+        <span>只填当前页，提交由你确认</span>
       </header>
 
       <label>
         <span>填充包 JSON</span>
-        <textarea id="packageInput" rows="9" placeholder="从 Auto CV 官网填表页复制扩展填充包后粘贴到这里"></textarea>
+        <textarea id="packageInput" rows="8" placeholder="从 KikiJob 辅助投递页复制填充包，粘贴到这里"></textarea>
       </label>
 
       <div class="actions">
@@ -24,18 +24,18 @@
         <button id="fillButton" type="button">填当前页</button>
       </div>
 
-      <div class="actions three">
+      <div class="actions three debug-only" hidden>
         <button id="watchButton" type="button">监听步骤</button>
         <button id="watchStatusButton" type="button">步骤统计</button>
         <button id="stopWatchButton" type="button">停止监听</button>
       </div>
 
-      <div class="actions">
+      <div class="actions debug-only" hidden>
         <button id="exportMokaSchemaButton" type="button">导出 MokaHR 页面结构</button>
         <button id="probeMokaSchemaButton" type="button">Probe Components</button>
       </div>
 
-      <section class="learning-panel">
+      <section class="learning-panel debug-only" hidden>
         <div>
           <strong>字段学习</strong>
           <span>默认保存到当前域名</span>
