@@ -26,6 +26,7 @@
   "dependencies": {
     "@vitejs/plugin-react": "^5.1.1",
     "lucide-react": "^0.468.0",
+    "pdf-parse": "^2.4.5",
     "pg": "^8.23.0",
     "playwright-core": "^1.62.1",
     "react": "^19.1.0",

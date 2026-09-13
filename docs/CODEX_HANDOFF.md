@@ -5,7 +5,7 @@
 - 前端是 React/Vite，主要入口在 `src/main.jsx`，API 客户端在 `src/api/client.js`。
 - 后端是 Node.js 原生 HTTP 服务，入口在 `server/index.js`。
 - 简历上传接口是 `POST /api/resumes/upload`，由 `server/resumeParser.js` 处理 multipart、文件保存和简历解析。
-- 文档读取已拆到 `server/documentParser.js`：默认保留现有 `pdfplumber` PDF 文本抽取；Docling 作为独立可选 parser，通过环境变量启用。
+- 文档读取已拆到 `server/documentParser.js`：普通 PDF 先用 Node 依赖 `pdf-parse` 抽取文本，再保留现有 `pdfplumber` 作为 fallback；Docling 作为独立可选 parser，通过环境变量启用。
 - 简历记录仍保存到现有 `resumes` 表，`rawText` 和 `parsedProfile` 沿用现有字段。
 - 自动填表映射继续通过 `repo.syncStandardFormMappings()` 和 `src/data/standardFormMappings.js` 生成。
 
@@ -44,6 +44,7 @@
 - 简历上传响应已增加 `parseDiagnostics`，包含 `parser`、`documentParser`、`documentFormat`、`parseWarning`、`doubaoConfigured`、`textLength` 和字段数量，方便判断正式版到底卡在 PDF 文本抽取、豆包配置、Zod 校验还是字段回填。
 - 如果 Doubao 返回合法但字段为空的 JSON，后端现在会保留 Doubao 结果链路，同时用本地规则补充可识别的邮箱、手机号、学校、经历等字段，并标记 `parseWarning: AI_RETURNED_EMPTY_FIELDS`。
 - 上传页会把解析诊断转换成轻量中文提示；AI 解析失败或字段较少不会阻止用户继续手动填写。
+- 已新增 Node 侧普通 PDF 文本抽取：`server/documentParser.js` 会先用 `pdf-parse` 读取 PDF 文本层，解决 Railway 纯 Node 部署里没有 Python/pdfplumber 导致普通 PDF 也提取失败的问题。扫描版 PDF 仍暂不做 OCR。
 - 没有修改上传页面、登录、数据库 schema 或无关 UI。
 - 没有把 Docling 作为默认依赖上线；没有新增 LangChain、RAG、Agent 框架。
 
@@ -61,6 +62,8 @@
 - `server/jobCrawler.test.js`
 - `server/scripts/extract_docling_text.py`
 - `server/documentParser.test.js`
+- `package.json`
+- `package-lock.json`
 - `src/main.jsx`
 - `chrome-extension/src/content/adapters/mokaV2.js`
 - `chrome-extension/tests/mokaV2.test.js`
@@ -104,10 +107,11 @@
 - 插件重复经历测试已覆盖 3 条实习经历自动新增和“新增一条实习经历”按钮文案。
 - Doubao 本地自测命令 `npm run resume:parse:doubao` 已成功返回结构化 JSON；当前本地 `http://localhost:8788/api/health` 显示 `doubaoConfigured: True`。
 - 已新增测试覆盖：当 Doubao 被调用但返回空结构化字段时，后端会用本地规则补充可识别字段并返回解析诊断。
+- 已新增测试覆盖：普通 PDF 会先通过 Node `pdf-parse` 抽取文本，避免部署环境缺 Python 时直接失败。
 
 ## 已知问题
 
-- PDF 文本抽取仍依赖现有 `server/scripts/extract_pdf_text.py` 和 `pdfplumber`，如果部署环境没有对应 Python 运行时会抽取失败。
+- 普通文本层 PDF 已不再依赖 Python；如果 `pdf-parse` 无法读取且部署环境没有 Python/pdfplumber，才会返回 PDF 文本提取失败提示。
 - 2026-09-09 本地页面上传曾出现 `PDF text extraction failed`，原因是后端默认使用 `python3`，Windows 环境可能没有该命令；已加入 fallback，但仍建议明确配置 `PYTHON_PATH`。
 - 本地 Python 3.11 可用，但当前环境未安装 `docling`。因此 Docling 默认不启用。
 - 当前仓库没有 Dockerfile、requirements 或 docling-serve 部署配置；把 Docling 默认上线会明显增加部署复杂度。

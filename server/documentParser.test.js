@@ -22,6 +22,30 @@ test('parses text and markdown files without external services', async () => {
   assert.match(md.text, /香港城市大学/);
 });
 
+test('extracts text from regular PDFs through the Node parser first', async () => {
+  const previousParser = process.env.DOCUMENT_PARSER;
+  const previousServerUrl = process.env.DOCLING_SERVER_URL;
+  delete process.env.DOCUMENT_PARSER;
+  delete process.env.DOCLING_SERVER_URL;
+
+  try {
+    const dir = join(tmpdir(), `kikijob-document-parser-${Date.now()}`);
+    mkdirSync(dir, { recursive: true });
+    const pdfPath = join(dir, 'resume.pdf');
+    writeFileSync(pdfPath, createMinimalPdf('KikiJob Resume'), 'binary');
+
+    const result = await parseDocumentFile(pdfPath);
+
+    assert.equal(result.parser, 'pdf-parse');
+    assert.match(result.text, /KikiJob Resume/);
+  } finally {
+    if (previousParser === undefined) delete process.env.DOCUMENT_PARSER;
+    else process.env.DOCUMENT_PARSER = previousParser;
+    if (previousServerUrl === undefined) delete process.env.DOCLING_SERVER_URL;
+    else process.env.DOCLING_SERVER_URL = previousServerUrl;
+  }
+});
+
 test('returns a clear DOCX warning when Docling is not configured', async () => {
   const previousParser = process.env.DOCUMENT_PARSER;
   const previousServerUrl = process.env.DOCLING_SERVER_URL;
@@ -47,3 +71,28 @@ test('returns a clear DOCX warning when Docling is not configured', async () => 
     else process.env.DOCLING_SERVER_URL = previousServerUrl;
   }
 });
+
+function createMinimalPdf(text) {
+  return [
+    '%PDF-1.4',
+    '1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj',
+    '2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj',
+    '3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >> endobj',
+    '4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj',
+    `5 0 obj << /Length ${text.length + 34} >> stream`,
+    `BT /F1 24 Tf 72 720 Td (${text}) Tj ET`,
+    'endstream endobj',
+    'xref',
+    '0 6',
+    '0000000000 65535 f ',
+    '0000000009 00000 n ',
+    '0000000058 00000 n ',
+    '0000000115 00000 n ',
+    '0000000241 00000 n ',
+    '0000000311 00000 n ',
+    'trailer << /Root 1 0 R /Size 6 >>',
+    'startxref',
+    '405',
+    '%%EOF',
+  ].join('\n');
+}

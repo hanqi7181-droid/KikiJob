@@ -181,7 +181,10 @@ export function OnboardingWizard({
 
   function resumeParseHint(diagnostics = {}) {
     if (!diagnostics || typeof diagnostics !== 'object') return '';
-    if (!diagnostics.textLength) return '未从文件中提取到可用文本，扫描版 PDF 暂不支持 OCR。';
+    if (!diagnostics.textLength && String(diagnostics.parseWarning || '').includes('FAILED')) {
+      return 'PDF 文本提取工具运行失败，请检查后端部署环境；你仍然可以继续手动填写资料。';
+    }
+    if (!diagnostics.textLength) return '未从文件中提取到可用文本，可能是扫描版 PDF；当前暂不做 OCR。';
     if (diagnostics.parseWarning === 'AI_RETURNED_EMPTY_FIELDS') return 'AI 解析结果较少，已用本地规则补充可识别字段，请继续确认。';
     if (diagnostics.parser === 'local-fallback') return 'AI 解析未完成，已使用本地规则提取可识别字段。';
     return '';

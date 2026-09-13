@@ -3,6 +3,7 @@ import { extname } from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
+import { PDFParse } from 'pdf-parse';
 
 const execFileAsync = promisify(execFile);
 const pythonPath = process.env.PYTHON_PATH || process.env.PYTHON || 'python3';
@@ -37,17 +38,49 @@ async function parsePdfDocument(filePath) {
   const docling = await parseWithConfiguredDocling(filePath, 'pdf');
   if (docling.text) return docling;
 
-  const fallback = await parsePdfWithPdfplumber(filePath);
-  if (fallback.text) {
-    return docling.warning ? { ...fallback, fallbackFrom: docling.parser, fallbackWarning: docling.warning } : fallback;
+  const nodeParser = await parsePdfWithNode(filePath);
+  if (nodeParser.text) {
+    return docling.warning ? { ...nodeParser, fallbackFrom: docling.parser, fallbackWarning: docling.warning } : nodeParser;
   }
 
+  const fallback = await parsePdfWithPdfplumber(filePath);
+  if (fallback.text) {
+    return {
+      ...fallback,
+      fallbackFrom: nodeParser.parser,
+      fallbackWarning: nodeParser.warning || docling.warning,
+    };
+  }
+
+  const warning = fallback.warning || nodeParser.warning || docling.warning || 'unsupported_scan_pdf';
   return {
     text: '',
-    parser: fallback.parser,
-    warning: fallback.warning || docling.warning || 'unsupported_scan_pdf',
-    message: '未能从 PDF 中提取可用文本。扫描版 PDF 暂不支持 OCR，请手动填写资料。',
+    parser: fallback.parser || nodeParser.parser,
+    warning,
+    message:
+      warning === 'unsupported_scan_pdf'
+        ? '未能从 PDF 中提取可用文本。扫描版 PDF 暂不支持 OCR，请手动填写资料。'
+        : 'PDF 文本提取工具运行失败，请检查后端部署环境；你仍然可以继续手动填写资料。',
   };
+}
+
+async function parsePdfWithNode(filePath) {
+  let parser;
+  try {
+    parser = new PDFParse({ data: readFileSync(filePath) });
+    const result = await parser.getText();
+    const text = String(result?.text || '').replace(/\r\n/g, '\n').trim();
+    return {
+      text,
+      parser: 'pdf-parse',
+      format: 'text',
+      warning: text ? '' : 'unsupported_scan_pdf',
+    };
+  } catch (error) {
+    return { text: '', parser: 'pdf-parse', warning: `PDF_PARSE_FAILED: ${error.message}` };
+  } finally {
+    await parser?.destroy?.();
+  }
 }
 
 async function parseDocxDocument(filePath) {
