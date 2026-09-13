@@ -30,7 +30,7 @@ export function normalizeImportedJob(input) {
   const city = cleanValue(input.city) || extractCity(normalizedText) || '未标注';
   const salary = cleanValue(input.salary) || extractSalary(normalizedText) || '未标注';
   const goal = cleanValue(input.goal) || inferGoal(normalizedText);
-  const tags = unique([...(input.tags || []), ...extractTags(`${title} ${normalizedText}`)]).slice(0, 8);
+  const tags = prioritizeFriendlyTags(unique([...(input.tags || []), ...extractTags(`${title} ${normalizedText}`)]));
 
   return {
     source: cleanValue(input.source) || '手动导入',
@@ -101,4 +101,9 @@ function extractTags(text) {
 
 function unique(values) {
   return [...new Set(values.map((value) => String(value).trim()).filter(Boolean))];
+}
+
+function prioritizeFriendlyTags(tags) {
+  const friendly = ['双非友好', '本科友好', '女性友好'];
+  return unique([...friendly.filter((tag) => tags.includes(tag)), ...tags]).slice(0, 12);
 }

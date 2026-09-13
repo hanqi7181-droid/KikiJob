@@ -1,56 +1,4 @@
-const preferredCompanies = [
-  { company: '中国移动', type: '央国企 通信 校招 实习', careersUrl: 'https://job.10086.cn/' },
-  { company: '中国电信', type: '央国企 通信 校招 实习', careersUrl: 'https://job.chinatelecom.com.cn/wt/TELE/web/index/campus' },
-  { company: '中国联通', type: '央国企 通信 校招 实习', careersUrl: 'https://chinaunicom.zhaopin.com/' },
-  { company: '国家电网', type: '央国企 能源 电力 校招', careersUrl: 'https://zhaopin.sgcc.com.cn/' },
-  { company: '中国石化', type: '央国企 能源 化工 校招', careersUrl: 'http://job.sinopec.com/' },
-  { company: '中国工商银行', type: '央国企 银行 金融 校招 实习', careersUrl: 'https://job.icbc.com.cn/' },
-  { company: '中国建设银行', type: '央国企 银行 金融 校招 实习', careersUrl: 'https://job.ccb.com/' },
-  { company: '中国银行', type: '央国企 银行 金融 校招 实习', careersUrl: 'https://www.boc.cn/aboutboc/bi4/' },
-  { company: '中国农业银行', type: '央国企 银行 金融 校招 实习', careersUrl: 'https://career.abchina.com.cn/' },
-  { company: '交通银行', type: '央国企 银行 金融 校招 实习', careersUrl: 'https://job.bankcomm.com/' },
-  { company: '招商银行', type: '银行 金融 校招 实习', careersUrl: 'https://career.cmbchina.com/' },
-  { company: '浦发银行', type: '银行 金融 校招 实习', careersUrl: 'https://spdb.zhaopin.com/' },
-  { company: '兴业银行', type: '银行 金融 校招 实习', careersUrl: 'https://job.cib.com.cn/' },
-  { company: '中信银行', type: '银行 金融 校招 实习', careersUrl: 'https://job.citicbank.com/' },
-  { company: '汇丰', type: '外企 银行 金融 校招 实习', careersUrl: 'https://www.hsbc.com/careers' },
-  { company: '平安科技', type: '金融科技 大厂 校招 实习', careersUrl: 'https://talent.pingan.com/' },
-  { company: '腾讯', type: '互联网 大厂 校招 实习', careersUrl: 'https://join.qq.com/' },
-  { company: '阿里巴巴', type: '互联网 大厂 校招 实习', careersUrl: 'https://talent.alibaba.com/' },
-  { company: '蚂蚁集团', type: '金融科技 大厂 校招 实习', careersUrl: 'https://talent.antgroup.com/' },
-  { company: '字节跳动', type: '互联网 大厂 AI 校招 实习', careersUrl: 'https://jobs.bytedance.com/campus/' },
-  { company: '火山引擎', type: '互联网 大厂 云计算 AI 校招 实习', careersUrl: 'https://jobs.bytedance.com/campus/' },
-  { company: '美团', type: '互联网 大厂 校招 实习', careersUrl: 'https://career.meituan.com/' },
-  { company: '百度', type: '互联网 大厂 AI 校招 实习', careersUrl: 'https://talent.baidu.com/jobs/list?projectType=1' },
-  { company: '携程', type: '互联网 旅游 大厂 校招 实习', careersUrl: 'https://pages.ctrip.com/commerce/promote/201108/other/hire/process.html' },
-  { company: '京东', type: '互联网 电商 大厂 校招 实习', careersUrl: 'https://campus.jd.com/' },
-  { company: '快手', type: '互联网 大厂 校招 实习', careersUrl: 'https://campus.kuaishou.cn/' },
-  { company: '小红书', type: '互联网 内容 社区 大厂 校招 实习', careersUrl: 'https://job.xiaohongshu.com/campus' },
-  { company: '哔哩哔哩', type: '互联网 内容 大厂 校招 实习', careersUrl: 'https://jobs.bilibili.com/campus' },
-  { company: '网易', type: '互联网 游戏 大厂 校招 实习', careersUrl: 'https://campus.163.com/' },
-  { company: '米哈游', type: '互联网 游戏 大厂 校招 实习', careersUrl: 'https://campus.mihoyo.com/' },
-  { company: '欧莱雅', type: '外企 女性友好 快消 美妆 校招 实习', careersUrl: 'https://careers.loreal.com/' },
-  { company: '雅诗兰黛', type: '外企 女性友好 美妆 校招 实习', careersUrl: 'https://www.elcompanies.com/en/careers' },
-  { company: '资生堂', type: '外企 女性友好 美妆 校招 实习', careersUrl: 'https://corp.shiseido.com/en/careers/' },
-  { company: '宝洁', type: '外企 女性友好 快消 校招 实习', careersUrl: 'https://www.pgcareers.com/' },
-  { company: '联合利华', type: '外企 女性友好 快消 校招 实习', careersUrl: 'https://careers.unilever.com/' },
-  { company: 'LVMH', type: '外企 女性友好 奢侈品 美妆 校招 实习', careersUrl: 'https://www.lvmh.com/join-us' },
-  { company: '香奈儿', type: '外企 女性友好 奢侈品 美妆 校招 实习', careersUrl: 'https://www.chanel.com/cn/careers/' },
-  { company: '宜家', type: '外企 女性友好 零售 校招 实习', careersUrl: 'https://www.ikea.com/global/en/our-business/how-we-work/work-with-us/' },
-  { company: '诺和诺德', type: '外企 女性友好 医药 校招 实习', careersUrl: 'https://www.novonordisk.com/careers.html' },
-  { company: '强生', type: '外企 女性友好 医药 快消 校招 实习', careersUrl: 'https://www.careers.jnj.com/' },
-  { company: '玛氏', type: '外企 女性友好 快消 校招 实习', careersUrl: 'https://careers.mars.com/' },
-  { company: '雀巢', type: '外企 女性友好 快消 校招 实习', careersUrl: 'https://www.nestle.com/jobs' },
-  { company: '微软', type: '外企 科技 大厂 校招 实习', careersUrl: 'https://jobs.careers.microsoft.com/' },
-  { company: '苹果', type: '外企 科技 大厂 校招 实习', careersUrl: 'https://jobs.apple.com/' },
-  { company: '亚马逊', type: '外企 科技 大厂 校招 实习', careersUrl: 'https://www.amazon.jobs/' },
-  { company: '特斯拉', type: '外企 新能源 制造 校招 实习', careersUrl: 'https://www.tesla.cn/careers/search/' },
-  { company: 'SAP', type: '外企 科技 软件 校招 实习', careersUrl: 'https://jobs.sap.com/' },
-  { company: 'IBM', type: '外企 科技 软件 校招 实习', careersUrl: 'https://www.ibm.com/careers/' },
-  { company: '沃尔沃', type: '外企 制造 校招 实习', careersUrl: 'https://www.volvogroup.com/en/careers.html' },
-  { company: '爱立信', type: '外企 通信 校招 实习', careersUrl: 'https://www.ericsson.com/en/careers' },
-  { company: 'Spotify', type: '外企 海外远程 校招 实习', careersUrl: 'https://www.lifeatspotify.com/jobs' },
-];
+import { preferredCompanies } from './companyPool.js';
 
 const commonChinaCities = ['北京', '上海', '广州', '深圳', '杭州', '成都', '南京', '苏州', '武汉', '西安', '全国'];
 const foreignCompanyCities = ['上海', '北京', '广州', '深圳', '杭州', '全国'];
@@ -194,23 +142,38 @@ function createSeededJobPool() {
     const goal = company.companyTags.includes('外企') ? '校招/实习' : '校招';
     const primaryRole = company.roleTags[0] || '管培生';
     const city = company.cityTags[0] || '全国';
+    const source = company.urlKind === 'official-search' ? '官网入口检索' : '公司官网';
+    const channel = company.urlKind === 'official-search' ? 'official-entry-search' : 'seeded-company-job-pool';
     return {
       company: company.company,
-      source: '公司官网',
+      source,
       sourceUrl: company.careersUrl,
       title: `${company.company} ${primaryRole}${goal}岗位`,
       city,
       salary: '以官网实时岗位为准',
       goal,
-      publishedAt: '',
+      publishedAt: company.tableSourceUpdatedAt || '',
       deadline: '',
-      tags: unique([...company.companyTags, ...company.roleTags.slice(0, 4), ...company.cityTags.slice(0, 2), goal]),
+      tags: unique([
+        ...company.companyTags,
+        ...company.roleTags.slice(0, 6),
+        ...company.cityTags.slice(0, 4),
+        ...(company.friendlyTags || []),
+        ...(company.audienceTags || []),
+        goal,
+      ]),
       companyType: company.type,
-      channel: 'seeded-company-job-pool',
+      channel,
       description: [
-        `${company.company} 官方招聘入口，已按公司类型、岗位方向和城市打标签。`,
+        company.urlKind === 'official-search'
+          ? `${company.company} 暂未核验到稳定官方招聘入口，先提供官网投递入口检索。`
+          : `${company.company} 官方招聘入口，已按公司类型、岗位方向和城市打标签。`,
+        company.entryExperience ? `入职体验摘要：${company.entryExperience}` : '',
+        company.audienceTags?.length ? `友好标签：${company.audienceTags.join('、')}` : '',
         '具体岗位、发布时间和截止时间以打开后的官网实时信息为准。',
       ].join('\n'),
+      entryExperience: company.entryExperience,
+      friendlyTags: unique([...(company.friendlyTags || []), ...(company.audienceTags || [])]),
     };
   });
 
@@ -381,13 +344,31 @@ function splitList(value) {
 
 function normalizeCompanyTags(company) {
   const typeTags = splitList(company.type);
-  const roleTags = unique(typeTags.flatMap((tag) => roleTagByType[tag] || []));
-  const cityTags = typeTags.includes('外企') && !typeTags.includes('央国企') ? foreignCompanyCities : commonChinaCities;
+  const explicitRoles = splitList(company.recruitmentRoles);
+  const roleTags = unique([...explicitRoles, ...typeTags.flatMap((tag) => roleTagByType[tag] || [])]);
+  const explicitCities = splitList(company.locations);
+  const cityTags = explicitCities.length
+    ? explicitCities
+    : typeTags.includes('外企') && !typeTags.includes('央国企')
+      ? foreignCompanyCities
+      : commonChinaCities;
+  const industryTags = splitList(company.industry);
+  const businessLineTags = splitList(company.businessLine);
+  const friendlyTags = splitList(company.friendlyTags);
+  const audienceTags = splitList(company.audienceTags);
   return {
     ...company,
-    companyTags: unique([...typeTags, ...companyTypeTags.filter((tag) => typeTags.includes(tag))]),
+    companyTags: unique([
+      ...typeTags,
+      ...industryTags,
+      ...businessLineTags,
+      ...friendlyTags,
+      ...audienceTags,
+      ...companyTypeTags.filter((tag) => typeTags.includes(tag)),
+    ]),
     roleTags: roleTags.length ? roleTags : ['产品经理', '运营', '数据分析', '商业分析'],
     cityTags,
+    friendlyTags: unique([...friendlyTags, ...audienceTags]),
   };
 }
 
@@ -430,6 +411,10 @@ function toRecommendedCompany(company) {
     industry: company.companyTags.filter((tag) => !companyTypeTags.includes(tag)).slice(0, 4).join('、') || company.type,
     location: company.cityTags.slice(0, 4).join('、'),
     url: company.careersUrl,
+    urlKind: company.urlKind || 'official',
+    businessLine: company.businessLine || '',
+    entryExperience: company.entryExperience || '',
+    friendlyTags: company.friendlyTags || [],
     tags: {
       company: company.companyTags,
       role: company.roleTags,
@@ -447,11 +432,19 @@ function pickSeededJobs(profile, companies, options = {}) {
 
   const ranked = seededJobPool
     .filter((job) => selectedCompanyNames.has(job.company) || profileTags.some((tag) => matchesAnyTag(tag.value, job.tags)))
+    .filter((job) => matchesRequiredCompanyTypes(job, profile.companyTypes))
     .map((job) => ({ ...job, matchScore: scoreSeededJob(job, profileTags) }))
     .filter((job) => job.matchScore > 0 || selectedCompanyNames.has(job.company))
     .sort((a, b) => b.matchScore - a.matchScore || a.company.localeCompare(b.company, 'zh-Hans-CN'));
 
   return ranked.slice(0, limit);
+}
+
+function matchesRequiredCompanyTypes(job, companyTypes = []) {
+  const requiredTypes = Array.isArray(companyTypes) ? companyTypes.filter(Boolean) : [];
+  if (!requiredTypes.length) return true;
+  const searchable = [job.companyType, ...(job.tags || [])];
+  return requiredTypes.some((type) => matchesAnyTag(type, searchable));
 }
 
 function scoreSeededJob(job, profileTags) {
@@ -587,6 +580,8 @@ function normalizeSeededJob(job) {
     channel: job.channel || 'seeded-job-pool',
     publishedAt: job.publishedAt || '',
     deadline: job.deadline || '',
+    entryExperience: job.entryExperience || '',
+    friendlyTags: unique(job.friendlyTags || []),
   };
 }
 

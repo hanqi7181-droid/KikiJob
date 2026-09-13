@@ -3058,6 +3058,46 @@ textarea:disabled {
   line-height: 1.6;
 }
 
+.recommend-tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.recommend-tag-row span {
+  border-radius: 8px;
+  background: #fff7dc;
+  color: #6e5a28;
+  padding: 6px 9px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.detail-tag-row {
+  margin-top: 12px;
+}
+
+.entry-experience-box {
+  margin-top: 12px;
+  border-radius: 8px;
+  background: #f7fbff;
+  border: 1px solid #d9e8f5;
+  color: #536176;
+  padding: 12px;
+}
+
+.entry-experience-box strong {
+  display: block;
+  color: #15243a;
+  font-size: 14px;
+  margin-bottom: 5px;
+}
+
+.entry-experience-box p {
+  margin: 0;
+  line-height: 1.6;
+}
+
 .recommend-job-footer,
 .recommend-card-actions {
   display: flex;

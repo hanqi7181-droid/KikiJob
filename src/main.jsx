@@ -968,10 +968,12 @@ function RecommendPage({
                   <h4>{company.company}</h4>
                   <p>{company.companyType || '公司类型暂未公开'} · {company.location || '地点暂未公开'}</p>
                   <span>{company.industry || '行业暂未公开'}</span>
+                  {company.friendlyTags?.length ? <span>{company.friendlyTags.join('、')}</span> : null}
+                  {company.entryExperience ? <small>{company.entryExperience}</small> : null}
                   <small>{company.reason}</small>
                 </div>
                 <button className="secondary-action" onClick={() => window.open(company.url, '_blank', 'noreferrer')}>
-                  关注
+                  {company.urlKind === 'official-search' ? '查找入口' : '关注'}
                 </button>
               </article>
             ))}
@@ -1248,6 +1250,12 @@ function RecommendJobCard({
 
       <p className="recommend-jd">{job.jdSummary || '岗位 JD 暂未公开。导入完整 JD 后可获得更准确的匹配分析。'}</p>
 
+      {job.friendlyTags?.length ? (
+        <div className="recommend-tag-row" aria-label="友好标签">
+          {job.friendlyTags.slice(0, 4).map((tag) => <span key={tag}>{tag}</span>)}
+        </div>
+      ) : null}
+
       <div className="recommend-job-footer">
         <button className="match-button" onClick={(event) => {
           event.stopPropagation();
@@ -1281,7 +1289,7 @@ function RecommendJobCard({
           window.open(job.applyUrl, '_blank', 'noreferrer');
         }}>
           <ExternalLink size={16} />
-          {searchRecommendation ? '跳转搜索' : '官方投递'}
+          {searchRecommendation ? (job.channel === 'official-entry-search' ? '查找官网入口' : '跳转搜索') : '官方投递'}
         </button>
         <button className="secondary-action" onClick={(event) => {
           event.stopPropagation();
@@ -1374,9 +1382,20 @@ function JobDetailDrawer({
                   <InfoItem label="来源" value={job.source || '暂未公开'} />
                   <InfoItem label="最后更新" value={job.sourceUpdatedAt || '暂未公开'} />
                 </div>
+                {job.friendlyTags?.length ? (
+                  <div className="recommend-tag-row detail-tag-row">
+                    {job.friendlyTags.map((tag) => <span key={tag}>{tag}</span>)}
+                  </div>
+                ) : null}
+                {job.entryExperience ? (
+                  <div className="entry-experience-box">
+                    <strong>入职体验摘要</strong>
+                    <p>{job.entryExperience}</p>
+                  </div>
+                ) : null}
                 {job.applyUrl ? (
                   <a className="apply-link" href={job.applyUrl} target="_blank" rel="noreferrer">
-                    {searchRecommendation ? '打开搜索结果' : '打开官方投递链接'}
+                    {searchRecommendation ? (job.channel === 'official-entry-search' ? '查找官网入口' : '打开搜索结果') : '打开官方投递链接'}
                   </a>
                 ) : (
                   <p className="muted-text">{searchRecommendation ? '搜索入口暂未导入。' : '官方投递链接暂未导入。'}</p>
@@ -1754,6 +1773,10 @@ function normalizeJobViewModel(job) {
   const applyUrl = job.applyUrl || job.sourceUrl || '';
   const sourceUpdatedAt = job.sourceUpdatedAt || job.fetchedAt || '';
   const deadline = job.deadline || '';
+  const friendlyTags = job.friendlyTags?.length
+    ? job.friendlyTags
+    : (job.tags || []).filter((tag) => ['双非友好', '本科友好', '女性友好'].includes(tag));
+  const entryExperience = job.entryExperience || extractEntryExperience(jdText);
   return {
     ...job,
     location: job.locations?.join('、') || job.city || job.location || '暂未公开',
@@ -1765,11 +1788,18 @@ function normalizeJobViewModel(job) {
     applyUrl,
     jdSummary: summarizeJd(jdText),
     isExpired: Boolean(deadline && isPastDate(deadline)),
+    friendlyTags,
+    entryExperience,
   };
 }
 
 function isSearchRecommendation(job = {}) {
-  return job.channel === 'job-board-search';
+  return job.channel === 'job-board-search' || job.channel === 'official-entry-search';
+}
+
+function extractEntryExperience(text = '') {
+  const match = String(text).match(/入职体验摘要[:：]\s*([^\n]+)/);
+  return match ? match[1].trim() : '';
 }
 
 function buildRecommendFilterOptions(jobs) {
