@@ -99,6 +99,11 @@ class FakeElement {
     this.onClick?.();
   }
 
+  dispatchEvent(event) {
+    if (event?.type === 'click') this.click();
+    return true;
+  }
+
   compareDocumentPosition(other) {
     return orderOf(this) < orderOf(other) ? 4 : 2;
   }
@@ -148,6 +153,15 @@ function section(title, itemFactory, count) {
   element.append(heading);
   for (let index = 0; index < count; index += 1) element.append(itemFactory());
   element.append(new FakeElement('button', { text: '添加', onClick: () => element.append(itemFactory()) }));
+  return element;
+}
+
+function sectionWithAddText(title, itemFactory, count, addText) {
+  const element = new FakeElement('section');
+  const heading = new FakeElement('h3', { text: title, className: 'title' });
+  element.append(heading);
+  for (let index = 0; index < count; index += 1) element.append(itemFactory());
+  element.append(new FakeElement('button', { text: addText, onClick: () => element.append(itemFactory()) }));
   return element;
 }
 
@@ -214,6 +228,12 @@ function createContext() {
     },
     Node: { DOCUMENT_POSITION_FOLLOWING: 4 },
     Element: FakeElement,
+    MouseEvent: class {
+      constructor(type, options = {}) {
+        this.type = type;
+        Object.assign(this, options);
+      }
+    },
     CSS: { escape: (value) => String(value) },
     setInterval,
     clearInterval,
@@ -306,6 +326,27 @@ test('Moka V2 preserves existing user values by default', async () => {
 
   assert.equal(valueIn(adapter.scanCurrentSchema().find((sectionItem) => sectionItem.sectionType === 'education').items[0], '学校名称'), '用户手工学校');
   assert.ok(results.some((itemResult) => itemResult.status === 'SKIPPED' && itemResult.label === '学校名称'));
+});
+
+test('Moka V2 recognizes explicit add-experience button copy', async () => {
+  const context = createContext();
+  const body = context.document.body;
+  const sections = body.children;
+  const internshipIndex = sections.findIndex((element) => element.innerText.includes('实习经历'));
+  sections[internshipIndex] = sectionWithAddText('实习经历', internshipItem, 1, '新增一条实习经历');
+  sections[internshipIndex].parentElement = body;
+  body.refreshText();
+
+  const adapter = context.window.JobPilotAutofill.adapters.mokaV2;
+  await adapter.fillSteps([
+    { id: 'internship1Company', value: '公司A' },
+    { id: 'internship2Company', value: '公司B' },
+    { id: 'internship3Company', value: '公司C' },
+  ]);
+
+  const internships = adapter.scanCurrentSchema().find((sectionItem) => sectionItem.sectionType === 'internship');
+  assert.equal(internships.items.length, 3);
+  assert.equal(valueIn(internships.items[2], '公司名称'), '公司C');
 });
 
 function fieldElement(itemElement, label) {

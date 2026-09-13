@@ -38,6 +38,7 @@
 - 已新增后端岗位种子池：覆盖三大运营商、国家电网、中国石化、主要银行、大厂/互联网、外企/女性友好公司。岗位种子按 `companyTags`、`roleTags`、`cityTags`、`goal` 打标签，点击智能推荐时按用户偏好推荐具体公司岗位入口。
 - 对已从公开校招日程页看到的招聘批次，岗位池会写入 `publishedAt`/`deadline`；未公开时间的官网岗位入口不编造时间。
 - `normalizeImportedJob` 和 PostgreSQL `addImportedJob` 已支持写入 `publishedAt`、`deadline` 到现有 `jobs.published_at`、`jobs.deadline` 字段。
+- 已优化 Chrome 插件的 MokaHR V2 重复经历添加：扩大“添加/新增/增加/+”按钮识别，支持“新增一条实习经历”等文案；点击添加时改为滚动到按钮并模拟 pointer/mouse/click 事件；等待动态新增区块时间从 3 秒放宽到 6 秒。
 - 没有修改上传页面、登录、数据库 schema 或无关 UI。
 - 没有把 Docling 作为默认依赖上线；没有新增 LangChain、RAG、Agent 框架。
 
@@ -56,6 +57,8 @@
 - `server/scripts/extract_docling_text.py`
 - `server/documentParser.test.js`
 - `src/main.jsx`
+- `chrome-extension/src/content/adapters/mokaV2.js`
+- `chrome-extension/tests/mokaV2.test.js`
 - `src/onboarding/OnboardingWizard.jsx`
 - `src/onboarding/steps.jsx`
 - `src/styles.css`
@@ -92,6 +95,7 @@
 - 后端还会先导入匹配的岗位种子池记录，再补充平台官网搜索入口和官网轻量抓取结果。
 - 如需稳定拿到每个岗位的截止时间、发布时间和详情字段，后续需要为重点公司做独立 adapter 或接官方/第三方岗位 API；当前阶段不做深爬、不做登录态抓取。
 - 已新增后端测试覆盖标签推荐、岗位种子池和岗位入口池：`server/jobCrawler.test.js` mock 官网 HTML，验证大厂/互联网/AI/杭州偏好会返回带标签的推荐公司和岗位，并验证央国企/通信/广州可命中三大运营商方向种子岗位，牛客等零预算岗位搜索入口会在点击智能推荐后生成。
+- 插件重复经历测试已覆盖 3 条实习经历自动新增和“新增一条实习经历”按钮文案。
 
 ## 已知问题
 
@@ -109,3 +113,4 @@
 - 启动后端和前端，在浏览器上传真实 PDF 简历，检查资料页或 onboarding 是否自动填入姓名、邮箱、手机号、教育经历、工作经历、项目经历和技能。
 - 如果上传端到端通过，再准备提交；如果失败，优先看后端日志里的 PDF 文本抽取或 `resume_parse_failed`。
 - 点击智能推荐，用不同偏好组合验证官网池筛选：`央国企`、`大厂`、`外企`、`银行`、`互联网`、`女性友好`；确认推荐公司只在点击后出现。
+- 录屏前在 Chrome 扩展管理页重新加载本地插件目录 `chrome-extension`，再打开一个 MokaHR 或相似投递表单测试 3 条实习经历自动新增。

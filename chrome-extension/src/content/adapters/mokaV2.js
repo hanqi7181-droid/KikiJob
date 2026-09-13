@@ -44,7 +44,7 @@
       title: '实习经历',
       repeatable: true,
       collection: 'experiences',
-      addLabel: /添加/,
+      addLabel: /添加|新增|增加|\+/,
       itemStart: /起止时间|开始时间/,
       fields: [
         { label: /起止时间|开始时间/, canonicalField: 'startDate', profileKey: 'startDate', componentType: 'monthRangePicker' },
@@ -59,7 +59,7 @@
       title: '项目经验',
       repeatable: true,
       collection: 'projects',
-      addLabel: /添加/,
+      addLabel: /添加|新增|增加|\+/,
       itemStart: /起止时间|开始时间/,
       fields: [
         { label: /起止时间|开始时间/, canonicalField: 'startDate', profileKey: 'startDate', componentType: 'monthRangePicker' },
@@ -74,7 +74,7 @@
       title: '获奖经历',
       repeatable: true,
       collection: 'awards',
-      addLabel: /添加/,
+      addLabel: /添加|新增|增加|\+/,
       itemStart: /获奖时间|时间/,
       fields: [
         { label: /获奖时间|时间/, canonicalField: 'date', profileKey: 'date', componentType: 'monthPicker' },
@@ -255,7 +255,7 @@
         break;
       }
       const before = count;
-      button.click();
+      await clickLikeUser(button);
       const changed = await waitForItemCount(type, before + 1);
       if (!changed) {
         results.push(sectionResult(type, 'NEED_CONFIRMATION', `${rule.title} 点击添加后未新增 item，已停止`));
@@ -264,6 +264,22 @@
       results.push(sectionResult(type, 'SUCCESS', `${rule.title} 已新增 item ${before}`));
     }
     return results;
+  }
+
+  async function clickLikeUser(button) {
+    button.scrollIntoView?.({ block: 'center', inline: 'center' });
+    await delay(80);
+    for (const eventName of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']) {
+      button.dispatchEvent?.(
+        new MouseEvent(eventName, {
+          bubbles: true,
+          cancelable: true,
+          view: window,
+        })
+      );
+    }
+    if (!button.dispatchEvent) button.click();
+    await delay(120);
   }
 
   function findItems(container, rule) {
@@ -345,9 +361,22 @@
 
   function findAddButton(container, rule) {
     if (!rule.addLabel) return null;
-    return Array.from(container.querySelectorAll('button,a,[role="button"],.ant-btn'))
+    return Array.from(container.querySelectorAll('button,a,[role="button"],.ant-btn,[class*="add"],[class*="Add"]'))
       .filter(isVisible)
-      .find((button) => rule.addLabel.test(textOf(button)) && !isDangerousButton(button)) || null;
+      .find((button) => looksLikeAddButton(button, rule)) || null;
+  }
+
+  function looksLikeAddButton(button, rule) {
+    const text = textOf(button);
+    const aria = button.getAttribute?.('aria-label') || '';
+    const title = button.getAttribute?.('title') || '';
+    const className = String(button.className || '');
+    const combined = compactText([text, aria, title, className].filter(Boolean).join(' '));
+    if (isDangerousButton(button)) return false;
+    if (!rule.addLabel.test(combined)) return false;
+    if (/^(添加|新增|增加|[+＋])$/.test(combined)) return true;
+    if (/经历|经验|教育|学历|项目|获奖|实习|工作|experience|education|project|award|item|entry|record/i.test(combined)) return true;
+    return /^[+＋]$/.test(combined) || /ant-btn.*(add|plus)|add/i.test(className);
   }
 
   function findDeleteButton(container) {
@@ -534,7 +563,11 @@
   }
 
   function waitTimeoutMs() {
-    return root.adapters.mokaV2?.testWaitMs || 3000;
+    return root.adapters.mokaV2?.testWaitMs || 6000;
+  }
+
+  function delay(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   const adapter = {
