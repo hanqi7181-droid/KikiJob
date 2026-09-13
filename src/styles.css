@@ -2998,12 +2998,36 @@ textarea:disabled {
   border-radius: 8px;
   background: #ffffff;
   color: #69768a;
+  transition:
+    transform 180ms var(--ease-standard),
+    color 180ms var(--ease-standard),
+    border-color 180ms var(--ease-standard),
+    background 180ms var(--ease-standard),
+    box-shadow 180ms var(--ease-standard);
+}
+
+.saved-button:hover {
+  transform: translateY(-1px) scale(1.04);
+  border-color: var(--color-danger);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  box-shadow: 0 10px 22px rgba(185, 109, 114, 0.2);
 }
 
 .saved-button.active {
-  border-color: #5f7fae;
-  background: #e8eef6;
-  color: #405f8b;
+  border-color: var(--color-danger);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  box-shadow: 0 10px 22px rgba(185, 109, 114, 0.18);
+}
+
+.saved-button.active:hover {
+  transform: translateY(-1px) scale(1.04);
+  box-shadow: 0 12px 26px rgba(185, 109, 114, 0.24);
+}
+
+.saved-button:active {
+  transform: scale(0.94);
 }
 
 .recommend-job-meta {
