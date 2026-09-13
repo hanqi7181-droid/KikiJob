@@ -30,11 +30,11 @@ export const defaultOnboardingState = {
     touched: {},
   },
   preferences: {
-    roles: ['AI 产品经理'],
-    locations: ['深圳', '上海'],
-    recruitmentTypes: ['校招', '实习'],
+    roles: [],
+    locations: [],
+    recruitmentTypes: [],
     graduationType: '',
-    companyTypes: ['互联网大厂', '外企'],
+    companyTypes: [],
     industries: [],
     salaryRange: '',
     remote: false,
@@ -146,12 +146,8 @@ export function hydrateOnboardingDraft(currentDraft, appProfile = {}, parsedResu
   if (appProfile?.email && !next.login.account) next.login.account = appProfile.email;
   if (appProfile?.resumeName && !next.resume.fileName) next.resume.fileName = appProfile.resumeName;
   next.preferences = hydratePreferences(next.preferences, appProfile);
-  if (parsedProfile && !hasConfirmedProfile(next.profile)) {
-    next.profile = {
-      ...next.profile,
-      ...parsedProfile,
-      touched: next.profile.touched || {},
-    };
+  if (parsedProfile) {
+    next.profile = applyParsedProfileWithTouched(next.profile, parsedProfile);
     next.resume.parsedProfile = parsedResume;
   }
   return sanitizeOnboardingDraft(next);
@@ -162,8 +158,8 @@ export function profileFromParsedResume(parsedResume = {}, appProfile = {}) {
   const text = parsedResume.fullText || parsedResume.summary || '';
   return {
     name: parsedResume.name || appProfile.name || '',
-    email: pick(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i, text) || appProfile.email || '',
-    phone: pick(/(?:\+?86[-\s]?)?1[3-9]\d[-\s]?\d{4}[-\s]?\d{4}/, text) || appProfile.phone || '',
+    email: parsedResume.email || pick(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i, text) || appProfile.email || '',
+    phone: parsedResume.phone || pick(/(?:\+?86[-\s]?)?1[3-9]\d[-\s]?\d{4}[-\s]?\d{4}/, text) || appProfile.phone || '',
     school: firstEducation.school || '',
     degree: firstEducation.degree || '',
     major: firstEducation.major || '',
@@ -180,6 +176,7 @@ export function applyParsedProfileWithTouched(currentProfile, parsedProfile) {
   for (const [key, value] of Object.entries(parsedProfile || {})) {
     if (key === 'touched') continue;
     if (touched[key]) continue;
+    if (hasMeaningfulValue(next[key])) continue;
     next[key] = value;
   }
   return next;
@@ -275,6 +272,12 @@ function asArray(value) {
   if (Array.isArray(value)) return value;
   if (typeof value === 'string' && value.trim()) return splitList(value);
   return [];
+}
+
+function hasMeaningfulValue(value) {
+  if (Array.isArray(value)) return value.length > 0;
+  if (value && typeof value === 'object') return Object.keys(value).length > 0;
+  return Boolean(String(value ?? '').trim());
 }
 
 function normalizeEducation(item = {}) {

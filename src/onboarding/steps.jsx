@@ -13,10 +13,38 @@ import {
   UserRound,
 } from 'lucide-react';
 
-const roleOptions = ['AI 产品经理', 'AI Agent 工程师', 'AI 应用开发', '数据分析', '商业分析', '算法工程师', '机器学习工程师', '计算机视觉算法工程师', 'AI 运营', '产品运营'];
-const locationOptions = ['深圳', '上海', '香港', '杭州', '北京', '广州', '成都', '南京', '苏州', '远程'];
-const companyTypeOptions = ['互联网大厂', '央国企', '外企', '金融科技', '成长型公司', '其他'];
-const industryOptions = ['人工智能', '金融科技', '银行中后台', '消费品/美妆', '跨境电商', '云计算', '咨询', '企业服务'];
+const commonCityOptions = ['北京', '上海', '广州', '深圳'];
+const companyTypeOptions = ['央国企', '大厂', '外企'];
+const industryRoleGroups = [
+  { industry: '人工智能', roles: ['AI 产品经理', 'AI Agent 工程师', 'AI 应用开发工程师', '机器学习工程师', '计算机视觉算法工程师', '算法工程师'] },
+  { industry: '互联网', roles: ['产品经理', '用户增长', '产品运营', '数据产品经理', '前端工程师', '后端工程师'] },
+  { industry: '金融科技', roles: ['金融科技产品经理', '量化研究助理', '风控策略分析师', '数据分析师', '商业分析师'] },
+  { industry: '咨询与商业分析', roles: ['商业分析师', '战略分析师', '管理咨询顾问', '行业研究员'] },
+  { industry: '消费品与品牌', roles: ['品牌管培生', '市场营销', '用户研究', '电商运营', '产品运营'] },
+  { industry: '企业服务', roles: ['SaaS 产品经理', '解决方案顾问', '客户成功', '项目经理'] },
+];
+const cityOptionsByLetter = [
+  ['A', ['鞍山', '安庆', '安阳', '安顺', '阿克苏']],
+  ['B', ['北京', '保定', '包头', '宝鸡', '蚌埠', '北海']],
+  ['C', ['重庆', '成都', '长沙', '长春', '常州', '沧州']],
+  ['D', ['大连', '东莞', '东营', '德州', '大庆', '丹东']],
+  ['F', ['佛山', '福州', '抚顺', '阜阳']],
+  ['G', ['广州', '贵阳', '桂林', '赣州']],
+  ['H', ['杭州', '合肥', '哈尔滨', '海口', '惠州', '呼和浩特', '湖州', '邯郸']],
+  ['J', ['济南', '嘉兴', '金华', '吉林', '江门', '九江']],
+  ['K', ['昆明', '开封']],
+  ['L', ['兰州', '洛阳', '廊坊', '柳州', '临沂']],
+  ['M', ['绵阳', '马鞍山']],
+  ['N', ['南京', '宁波', '南昌', '南宁', '南通']],
+  ['Q', ['青岛', '泉州', '秦皇岛']],
+  ['S', ['上海', '深圳', '苏州', '沈阳', '石家庄', '绍兴', '三亚']],
+  ['T', ['天津', '太原', '唐山', '台州']],
+  ['W', ['武汉', '无锡', '温州', '乌鲁木齐', '威海', '潍坊']],
+  ['X', ['西安', '厦门', '徐州', '香港', '新乡', '襄阳']],
+  ['Y', ['烟台', '扬州', '银川', '宜昌']],
+  ['Z', ['郑州', '珠海', '中山', '镇江', '淄博']],
+];
+const locationOptions = cityOptionsByLetter.flatMap(([, cities]) => cities);
 const fillTypeOptions = [
   { id: 'contact', label: '联系方式' },
   { id: 'education', label: '教育经历' },
@@ -103,7 +131,7 @@ function LoginStep({
   const [mode, setMode] = useState('password');
   const [password, setPassword] = useState('');
   const [emailCode, setEmailCode] = useState('');
-  const [status, setStatus] = useState(authUser ? '已登录，后续数据会保存到当前账号。' : '');
+  const [, setStatus] = useState(authUser ? '已登录，后续数据会保存到当前账号。' : '');
   const [pendingAction, setPendingAction] = useState('');
 
   const account = String(login.account || '').trim();
@@ -171,7 +199,6 @@ function LoginStep({
     <div className="onboarding-step login-step-shell">
       <section className="login-template-card" aria-label="登录 KikiJob">
         <h3>登录</h3>
-        <p>登录后你的简历、字段词库、投递记录会按账号隔离保存。</p>
         <div className="login-mode-toggle" aria-label="登录方式">
           <button type="button" className={mode === 'password' ? 'selected' : ''} onClick={() => setMode('password')}>
             <KeyRound size={17} />邮箱密码
@@ -235,10 +262,6 @@ function LoginStep({
                   : '验证码登录'}
           </button>
         </div>
-        <div className="policy-list login-status-list" role="status" aria-live="polite">
-          <p>会话状态：{status || login.sessionStatus || '等待登录'}</p>
-          <p>当前仅支持邮箱密码和邮箱验证码登录。</p>
-        </div>
         <label className="check-row agreement-row">
           <input
             type="checkbox"
@@ -247,7 +270,7 @@ function LoginStep({
             aria-invalid={Boolean(errors.acceptedTerms)}
             aria-describedby={errors.acceptedTerms ? 'onboarding-terms-error' : undefined}
           />
-          <span>继续即代表同意服务条款和隐私说明</span>
+          <span>我已阅读并同意服务条款和隐私说明。登录后，你的简历、字段词库、投递记录会按账号隔离保存。</span>
         </label>
         <ErrorText id="onboarding-terms-error" message={errors.acceptedTerms} />
       </section>
@@ -267,15 +290,15 @@ function ResumeStep({ applyPendingProfile, draft, errors, setField, uploadResume
 
   return (
     <div className="onboarding-step">
-      <StepHeading title="上传简历" text="当前后端真实支持 PDF、TXT、Markdown；DOC/DOCX 解析尚未接入。" />
+      <StepHeading title="上传简历" text="当前后端支持 PDF、DOCX、TXT、Markdown；扫描版 PDF 暂不支持 OCR。" />
       <label className="onboarding-upload">
         <Upload size={24} />
-        <strong title={resume.fileName}>{truncateFileName(resume.fileName) || '选择 PDF / TXT / Markdown 简历'}</strong>
+        <strong title={resume.fileName}>{truncateFileName(resume.fileName) || '选择 PDF / DOCX / TXT / Markdown 简历'}</strong>
         <span>{resume.fileSize ? `${resume.fileSize} · ${statusText}` : statusText}</span>
         <input
           id="onboarding-resume"
           type="file"
-          accept=".pdf,.txt,.md"
+          accept=".pdf,.docx,.txt,.md"
           onChange={(event) => uploadResumeFile(event.target.files?.[0])}
           aria-invalid={Boolean(errors.fileName)}
           aria-describedby={errors.fileName ? 'onboarding-resume-error' : undefined}
@@ -404,20 +427,17 @@ function PreferencesStep({ draft, errors, setField }) {
   return (
     <div className="onboarding-step">
       <StepHeading title="设置求职偏好" text="这些偏好会影响推荐公司、推荐岗位和后续投递任务排序。" />
-      <SearchableChoiceGroup
-        title="求职意向"
+      <IndustryRolePicker
         error={errors.roles}
-        options={roleOptions}
-        values={safeArray(preferences.roles)}
-        placeholder="搜索岗位方向"
-        onChange={(values) => setField('preferences', 'roles', values)}
+        industryValues={safeArray(preferences.industries)}
+        roleValues={safeArray(preferences.roles)}
+        onIndustryChange={(values) => setField('preferences', 'industries', values)}
+        onRoleChange={(values) => setField('preferences', 'roles', values)}
       />
-      <SearchableChoiceGroup
+      <CityChoiceGroup
         title="目标地点"
         error={errors.locations}
-        options={locationOptions}
         values={safeArray(preferences.locations)}
-        placeholder="搜索城市/国家"
         onChange={(values) => setField('preferences', 'locations', values)}
       />
       <ChoiceGroup title="招聘类型" error={errors.recruitmentTypes}>
@@ -434,13 +454,6 @@ function PreferencesStep({ draft, errors, setField }) {
           onChange={(values) => setField('preferences', 'companyTypes', values)}
         />
       </ChoiceGroup>
-      <SearchableChoiceGroup
-        title="行业偏好"
-        options={industryOptions}
-        values={safeArray(preferences.industries)}
-        placeholder="搜索行业"
-        onChange={(values) => setField('preferences', 'industries', values)}
-      />
       <div className="onboarding-field-grid">
         <label>
           <span>届别/毕业时间</span>
@@ -562,6 +575,96 @@ function ChoiceGroup({ children, error, title }) {
       </div>
       {children}
     </section>
+  );
+}
+
+function IndustryRolePicker({ error, industryValues, onIndustryChange, onRoleChange, roleValues }) {
+  const [activeIndustry, setActiveIndustry] = useState(industryValues[0] || industryRoleGroups[0].industry);
+  const activeGroup = industryRoleGroups.find((group) => group.industry === activeIndustry) || industryRoleGroups[0];
+
+  const toggleIndustry = (industry) => {
+    setActiveIndustry(industry);
+    if (!industryValues.includes(industry)) onIndustryChange([...industryValues, industry]);
+  };
+
+  const updateRoles = (values) => {
+    if (!industryValues.includes(activeGroup.industry)) onIndustryChange([...industryValues, activeGroup.industry]);
+    onRoleChange(values);
+  };
+
+  return (
+    <ChoiceGroup title="岗位偏好" error={error}>
+      <div className="preference-split">
+        <div className="industry-tabs" aria-label="行业分类">
+          {industryRoleGroups.map((group) => (
+            <button
+              key={group.industry}
+              type="button"
+              className={group.industry === activeIndustry ? 'selected' : ''}
+              onClick={() => toggleIndustry(group.industry)}
+            >
+              {group.industry}
+            </button>
+          ))}
+        </div>
+        <ChipGrid options={activeGroup.roles} values={roleValues} onChange={updateRoles} />
+      </div>
+    </ChoiceGroup>
+  );
+}
+
+function CityChoiceGroup({ error, onChange, title, values }) {
+  const [query, setQuery] = useState('');
+  const safeValues = safeArray(values);
+  const normalizedQuery = query.trim().toLowerCase();
+  const visibleGroups = cityOptionsByLetter
+    .map(([letter, cities]) => [
+      letter,
+      normalizedQuery ? cities.filter((city) => city.toLowerCase().includes(normalizedQuery)) : cities,
+    ])
+    .filter(([, cities]) => cities.length);
+
+  const addCustomValue = () => {
+    const value = query.trim();
+    if (!value || safeValues.includes(value)) return;
+    onChange([...safeValues, value]);
+    setQuery('');
+  };
+
+  return (
+    <ChoiceGroup title={title} error={error}>
+      <div className="common-city-row">
+        <span>常用城市</span>
+        <ChipGrid options={commonCityOptions} values={safeValues} onChange={onChange} />
+      </div>
+      <label className="choice-search">
+        <span>按 A-Z 搜索中国省市</span>
+        <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              addCustomValue();
+            }
+          }}
+          placeholder="输入城市或省份名称"
+        />
+      </label>
+      <div className="city-letter-list">
+        {visibleGroups.map(([letter, cities]) => (
+          <section className="city-letter-group" key={letter}>
+            <strong>{letter}</strong>
+            <ChipGrid options={cities} values={safeValues} onChange={onChange} />
+          </section>
+        ))}
+      </div>
+      {query.trim() && !locationOptions.includes(query.trim()) && (
+        <button type="button" className="chip-add-button" onClick={addCustomValue}>
+          添加“{query.trim()}”
+        </button>
+      )}
+    </ChoiceGroup>
   );
 }
 

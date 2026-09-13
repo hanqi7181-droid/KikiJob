@@ -53,7 +53,6 @@ import { buildApplicationPacket } from './data/applicationPacket.js';
 import { buildAutofillPreview, buildAutofillPreviewFromScannedFields, buildAutofillScript } from './data/careerAutofill.js';
 import { applicationStatuses, initialProfile } from './data/demoData.js';
 import { evaluateJobMatch } from './data/matching.js';
-import { generateCareerSiteTasks } from './data/searchTasks.js';
 import { buildStandardFormMappings, normalizeProfileData } from './data/standardFormMappings.js';
 import { OnboardingWizard } from './onboarding/OnboardingWizard.jsx';
 import {
@@ -144,6 +143,7 @@ function App() {
   const [authProviders, setAuthProviders] = useState({ password: true, emailCode: true });
   const [authUser, setAuthUser] = useState(null);
   const [recommendImportState, setRecommendImportState] = useState('');
+  const [recommendedCompanies, setRecommendedCompanies] = useState([]);
   const [activeTab, setActiveTabState] = useState(routeFromHash);
   const [onboardingCompleted, setOnboardingCompleted] = useState(readOnboardingCompleted);
   const hasBootstrapped = useRef(false);
@@ -247,8 +247,6 @@ function App() {
       .map((job) => evaluateJobMatch(job, profile, parsedResume))
       .sort((a, b) => b.score - a.score);
   }, [jobs, parsedResume, profile]);
-
-  const careerSiteTasks = useMemo(() => generateCareerSiteTasks(profile), [profile]);
 
   const applicationPacket = useMemo(() => buildApplicationPacket(profile, parsedResume), [parsedResume, profile]);
   const standardMappings = useMemo(
@@ -496,10 +494,11 @@ function App() {
   };
 
   const handleSmartRecommend = () => {
-    setRecommendImportState('正在抓取偏好公司的真实官网岗位...');
+    setRecommendImportState('正在按你的公司、岗位和城市偏好匹配官网池...');
     importRecommendedJobs(profile)
       .then((payload) => {
         setJobs(payload.jobs || []);
+        setRecommendedCompanies(payload.recommendedCompanies || []);
         const importedCount = payload.imported?.length || 0;
         const duplicateCount = payload.duplicates?.length || 0;
         const errorCount = payload.errors?.length || 0;
@@ -600,17 +599,17 @@ function App() {
             title="推荐公司与岗位"
             description="根据你的简历画像、求职偏好和已导入岗位，聚合推荐公司、岗位详情和匹配结果。"
           >
-            <RecommendPage
-              applicationDetails={applicationDetails}
-              careerSiteTasks={careerSiteTasks}
-              handleApplicationDetailChange={handleApplicationDetailChange}
-              handleDeleteJob={handleDeleteJob}
-              handleStatusChange={handleStatusChange}
-              profile={profile}
-              recommendImportState={recommendImportState}
-              scoredJobs={scoredJobs}
-              setActiveTab={setActiveTab}
-              statusMap={statusMap}
+          <RecommendPage
+            applicationDetails={applicationDetails}
+            handleApplicationDetailChange={handleApplicationDetailChange}
+            handleDeleteJob={handleDeleteJob}
+            handleStatusChange={handleStatusChange}
+            profile={profile}
+            recommendImportState={recommendImportState}
+            recommendedCompanies={recommendedCompanies}
+            scoredJobs={scoredJobs}
+            setActiveTab={setActiveTab}
+            statusMap={statusMap}
               onSmartRecommend={handleSmartRecommend}
               onStartAssist={(url) => {
                 setCareerUrl(url || '');
@@ -902,11 +901,11 @@ function CoreRoutePage({ children, description, eyebrow, title }) {
 
 function RecommendPage({
   applicationDetails,
-  careerSiteTasks,
   handleApplicationDetailChange,
   handleDeleteJob,
   handleStatusChange,
   profile,
+  recommendedCompanies,
   scoredJobs,
   setActiveTab,
   statusMap,
@@ -917,7 +916,7 @@ function RecommendPage({
   const safeApplicationDetails = applicationDetails && typeof applicationDetails === 'object' ? applicationDetails : {};
   const safeStatusMap = statusMap && typeof statusMap === 'object' ? statusMap : {};
   const safeScoredJobs = Array.isArray(scoredJobs) ? scoredJobs : [];
-  const safeCareerSiteTasks = Array.isArray(careerSiteTasks) ? careerSiteTasks : [];
+  const safeRecommendedCompanies = Array.isArray(recommendedCompanies) ? recommendedCompanies : [];
   const safeProfile = profile && typeof profile === 'object' ? profile : {};
   const [filters, setFilters] = useState({
     keyword: '',
@@ -932,7 +931,6 @@ function RecommendPage({
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [selectedJobId, setSelectedJobId] = useState(null);
   const [detailTab, setDetailTab] = useState('detail');
-  const recommendedCompanies = useMemo(() => buildRecommendedCompanies(safeCareerSiteTasks), [safeCareerSiteTasks]);
   const jobViewModels = useMemo(() => safeScoredJobs.map(normalizeJobViewModel), [safeScoredJobs]);
   const filterOptions = useMemo(() => buildRecommendFilterOptions(jobViewModels), [jobViewModels]);
   const visibleJobs = useMemo(() => filterRecommendedJobs(jobViewModels, filters), [filters, jobViewModels]);
@@ -983,9 +981,9 @@ function RecommendPage({
             <h3>推荐公司</h3>
           </div>
         </div>
-        {recommendedCompanies.length ? (
+        {safeRecommendedCompanies.length ? (
           <div className="company-snap-row" aria-label="推荐公司列表">
-            {recommendedCompanies.map((company) => (
+            {safeRecommendedCompanies.map((company) => (
               <article className="recommend-company-card" key={company.company}>
                 <div className="company-avatar">{company.company.slice(0, 1)}</div>
                 <div>
@@ -1001,7 +999,7 @@ function RecommendPage({
             ))}
           </div>
         ) : (
-          <EmptyRecommendState title="还没有推荐公司" text="完善求职偏好后，这里会展示更合适的公司官网入口。" />
+          <EmptyRecommendState title="点击智能推荐后生成" text="点击后会按公司类型、岗位和城市偏好推荐。" />
         )}
       </section>
 
@@ -1740,22 +1738,6 @@ function filterRecommendedJobs(jobs, filters) {
     });
 }
 
-function buildRecommendedCompanies(tasks = []) {
-  const seen = new Map();
-  for (const task of tasks) {
-    if (!task.company || seen.has(task.company)) continue;
-    seen.set(task.company, {
-      company: task.company,
-      companyType: task.companyType,
-      industry: task.keyword,
-      location: task.city || '',
-      url: task.url || task.searchUrl,
-      reason: task.note || `与你的${task.companyType || '求职'}偏好匹配`,
-    });
-  }
-  return [...seen.values()].slice(0, 12);
-}
-
 function summarizeJd(text = '') {
   const compact = String(text).replace(/\s+/g, ' ').trim();
   if (!compact) return '';
@@ -2335,8 +2317,8 @@ function ResumeVersionsSection({ handleDeleteResume, handleResumeChange, handleS
     <div className="resume-version-stack">
       <label className="upload-box compact-upload">
         <Upload size={22} />
-        <span>{profile.resumeName || '重新上传简历 PDF'}</span>
-        <input type="file" accept=".pdf" onChange={(event) => handleResumeChange(event.target.files?.[0])} />
+        <span>{profile.resumeName || '重新上传简历'}</span>
+        <input type="file" accept=".pdf,.docx,.txt,.md" onChange={(event) => handleResumeChange(event.target.files?.[0])} />
       </label>
       {versions.map((resume) => (
         <article className="resume-version-card" key={resume.id}>

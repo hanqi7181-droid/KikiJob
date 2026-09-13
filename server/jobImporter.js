@@ -44,6 +44,8 @@ export function normalizeImportedJob(input) {
     companyType: cleanValue(input.companyType) || inferCompanyType(normalizedText),
     goal,
     channel: cleanValue(input.channel) || (input.sourceUrl || input.url ? 'manual-link' : 'manual-jd'),
+    publishedAt: cleanValue(input.publishedAt),
+    deadline: cleanValue(input.deadline),
     isDemo: false,
   };
 }

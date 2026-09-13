@@ -3,10 +3,19 @@ import assert from 'node:assert/strict';
 import {
   applyParsedProfileWithTouched,
   autofillDraftToAppProfile,
+  defaultOnboardingState,
   preferencesDraftToAppProfile,
   profileFromParsedResume,
   sanitizeOnboardingDraft,
 } from './onboardingState.js';
+
+test('new onboarding users start without preset job preferences', () => {
+  assert.deepEqual(defaultOnboardingState.preferences.roles, []);
+  assert.deepEqual(defaultOnboardingState.preferences.locations, []);
+  assert.deepEqual(defaultOnboardingState.preferences.recruitmentTypes, []);
+  assert.deepEqual(defaultOnboardingState.preferences.companyTypes, []);
+  assert.deepEqual(defaultOnboardingState.preferences.industries, []);
+});
 
 test('parsed resume builds onboarding profile basics and repeatable sections', () => {
   const profile = profileFromParsedResume({
@@ -39,6 +48,24 @@ test('parsed profile does not overwrite manually touched fields', () => {
 
   assert.equal(next.name, '用户手动姓名');
   assert.equal(next.email, 'parsed@example.com');
+});
+
+test('parsed profile fills empty fields without replacing existing values', () => {
+  const current = {
+    name: '',
+    email: 'existing@example.com',
+    education: [],
+    touched: {},
+  };
+  const next = applyParsedProfileWithTouched(current, {
+    name: '解析姓名',
+    email: 'parsed@example.com',
+    education: [{ school: '香港城市大学' }],
+  });
+
+  assert.equal(next.name, '解析姓名');
+  assert.equal(next.email, 'existing@example.com');
+  assert.deepEqual(next.education, [{ school: '香港城市大学' }]);
 });
 
 test('onboarding preferences and autofill settings reuse existing profile shape', () => {

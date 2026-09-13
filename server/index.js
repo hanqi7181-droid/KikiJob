@@ -10,7 +10,7 @@ import { createRateLimiter } from './rateLimit.js';
 
 const port = Number(process.env.PORT || 8787);
 const defaultUserId = 1;
-const corsOrigin = process.env.CORS_ORIGIN || process.env.FRONTEND_URL || '*';
+const corsOrigin = normalizeCorsOrigin(process.env.CORS_ORIGIN || process.env.FRONTEND_URL || '*');
 const repo = getRepository();
 const authRateLimit = createRateLimiter({ max: Number(process.env.AUTH_RATE_LIMIT_MAX || 10), windowMs: 60_000 });
 const uploadRateLimit = createRateLimiter({ max: Number(process.env.UPLOAD_RATE_LIMIT_MAX || 12), windowMs: 60_000 });
@@ -147,6 +147,7 @@ const server = http.createServer(async (request, response) => {
         duplicates,
         errors: crawlResult.errors,
         checkedCompanies: crawlResult.checkedCompanies,
+        recommendedCompanies: crawlResult.recommendedCompanies || [],
         jobs: await repo.listJobs(),
       });
     }
@@ -348,4 +349,10 @@ function readJson(request) {
     });
     request.on('error', reject);
   });
+}
+
+function normalizeCorsOrigin(value) {
+  const origin = String(value || '*').trim();
+  if (!origin || origin === '*') return '*';
+  return origin.replace(/\/+$/, '');
 }

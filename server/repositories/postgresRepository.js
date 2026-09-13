@@ -411,9 +411,9 @@ async function addImportedJob(runtime, job = {}) {
   const result = await runtime.query(
     `INSERT INTO jobs (
        source, source_url, title, company_name, location, salary, jd_text,
-       tags, company_type, recruitment_type, channel, is_demo, fetched_at
+       tags, company_type, recruitment_type, channel, published_at, deadline, is_demo, fetched_at
      )
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, FALSE, NOW())
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12, $13, FALSE, NOW())
      RETURNING *`,
     [
       job.source,
@@ -427,6 +427,8 @@ async function addImportedJob(runtime, job = {}) {
       job.companyType,
       job.goal,
       job.channel,
+      job.publishedAt || null,
+      job.deadline || null,
     ]
   );
 

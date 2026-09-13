@@ -1,14 +1,14 @@
 export const initialProfile = {
   resumeName: '',
   identity: '应届毕业生',
-  goals: ['实习', '校招'],
-  roles:
-    '央国企：AI算法工程师（数据挖掘、机器学习、计算机视觉、金融、图神经网络方向）、AI产品经理；互联网大厂：AI产品经理、AI应用开发、运营、数据分析、商业分析',
-  cities: ['深圳', '香港', '上海', '浙江'],
-  salaryIntern: '4000-8000（除香港）',
-  salaryGraduate: '10000-30000',
-  industries: ['互联网大厂', '金融科技', '央国企', '银行中后台', '福利待遇好的外企'],
-  accounts: ['Boss直聘', 'LinkedIn'],
+  goals: [],
+  roles: '',
+  cities: [],
+  salaryIntern: '',
+  salaryGraduate: '',
+  industries: [],
+  accounts: [],
+  companyTypes: [],
   allowTailor: true,
 };
 

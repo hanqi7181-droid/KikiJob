@@ -1,5 +1,10 @@
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8787/api').replace(/\/$/, '');
+const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL || 'http://localhost:8787/api');
 const AUTH_TOKEN_KEY = 'kikijob.authToken';
+
+function normalizeApiBaseUrl(value) {
+  const base = String(value || '').trim().replace(/\/+$/, '');
+  return base.endsWith('/api') ? base : `${base}/api`;
+}
 
 export function readAuthToken() {
   try {

@@ -1,14 +1,12 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { basename, extname, join } from 'node:path';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
+import { parseDocumentFile } from './documentParser.js';
+import { DoubaoProvider } from './llmProvider.js';
+import { parseStructuredResume } from './structuredResumeParser.js';
 import { persistResumeFile } from './storage.js';
 
-const execFileAsync = promisify(execFile);
 const projectRoot = join(import.meta.dirname, '..');
 const uploadDir = join(projectRoot, 'uploads');
-const pythonPath = process.env.PYTHON_PATH || process.env.PYTHON || 'python3';
-const pdfExtractScript = join(import.meta.dirname, 'scripts', 'extract_pdf_text.py');
 const maxUploadBytes = Number(process.env.MAX_RESUME_UPLOAD_BYTES || 8 * 1024 * 1024);
 
 mkdirSync(uploadDir, { recursive: true });
@@ -23,21 +21,11 @@ export function sanitizeFileName(fileName) {
 
 export async function parseResumeFile(filePath) {
   const extension = extname(filePath).toLowerCase();
-  let rawText = '';
-
-  if (extension === '.pdf') {
-    rawText = await extractPdfText(filePath).catch((error) => {
-      console.warn(`[resume-parser] PDF text extraction failed: ${error.message}`);
-      return '';
-    });
-  } else if (['.txt', '.md'].includes(extension)) {
-    rawText = readFileSync(filePath, 'utf8');
-  } else {
-    throw new Error('Current parser supports PDF, TXT, and Markdown files');
-  }
+  const document = await parseDocumentFile(filePath);
+  const rawText = document.text || '';
 
   const parsedProfile = rawText
-    ? extractProfile(rawText)
+    ? await parseResumeText(rawText)
     : {
         name: '',
         fullText: '',
@@ -51,10 +39,102 @@ export async function parseResumeFile(filePath) {
         experiences: [],
         languages: [],
         textLength: 0,
-        summary: '简历文件已保存，但当前运行环境未能提取 PDF 文本。请在下一步手动补充或确认资料。',
-        parseWarning: 'PDF_TEXT_EXTRACTION_FAILED',
+        summary: document.message || '简历文件已保存，但当前运行环境未能提取可用文本。请在下一步手动补充或确认资料。',
+        parseWarning: document.warning || (extension === '.pdf' ? 'unsupported_scan_pdf' : 'DOCUMENT_TEXT_EXTRACTION_FAILED'),
+        documentParser: document.parser,
       };
+  parsedProfile.documentParser = document.parser;
+  parsedProfile.documentFormat = document.format || extension.replace('.', '');
+  if (document.warning && !parsedProfile.parseWarning) parsedProfile.parseWarning = document.warning;
   return { rawText, parsedProfile };
+}
+
+async function parseResumeText(rawText) {
+  if (!isDoubaoConfigured()) return extractProfile(rawText);
+
+  try {
+    const structuredResume = await parseStructuredResume(rawText, {
+      provider: new DoubaoProvider(),
+      maxAttempts: 2,
+    });
+
+    const parsedProfile = structuredResumeToParsedProfile(structuredResume, rawText);
+    console.info('[resume-parser] Doubao parsed resume', {
+      textLength: parsedProfile.textLength,
+      educationCount: parsedProfile.educationDetails.length,
+      workCount: parsedProfile.workExperienceDetails.length,
+      projectCount: parsedProfile.projectExperienceDetails.length,
+      skillsCount: parsedProfile.skills.length,
+    });
+    return parsedProfile;
+  } catch (error) {
+    console.warn(`[resume-parser] Doubao structured parsing failed: ${error.message}`);
+    return {
+      ...extractProfile(rawText),
+      parser: 'local-fallback',
+      parseWarning: error.code || 'AI_RESUME_PARSE_FAILED',
+    };
+  }
+}
+
+export function structuredResumeToParsedProfile(structuredResume = {}, rawText = '') {
+  const text = String(rawText || '');
+  const normalized = text.replace(/\s+/g, ' ').trim();
+  const basicInfo = structuredResume.basicInfo || {};
+  const skills = Array.isArray(structuredResume.skills) ? structuredResume.skills.filter(Boolean) : [];
+
+  return {
+    name: cleanText(basicInfo.name),
+    email: cleanText(basicInfo.email),
+    phone: cleanText(basicInfo.phone),
+    location: cleanText(basicInfo.location),
+    fullText: normalized,
+    education: (structuredResume.education || []).map((item) =>
+      compactJoin([item.school, item.degree, item.major, item.startDate, item.endDate], ' ')
+    ),
+    educationDetails: (structuredResume.education || []).map((item) => ({
+      school: cleanText(item.school),
+      degree: cleanText(item.degree),
+      major: cleanText(item.major),
+      startDate: cleanText(item.startDate),
+      endDate: cleanText(item.endDate),
+      ranking: '',
+      courses: '',
+      description: cleanText(item.description),
+    })),
+    workExperienceDetails: (structuredResume.workExperience || []).map((item) => ({
+      company: cleanText(item.company),
+      department: '',
+      role: cleanText(item.position),
+      startDate: cleanText(item.startDate),
+      endDate: cleanText(item.endDate),
+      description: cleanText(item.description),
+    })),
+    projectExperienceDetails: (structuredResume.projects || []).map((item) => ({
+      name: cleanText(item.projectName),
+      role: cleanText(item.role),
+      startDate: cleanText(item.startDate),
+      endDate: cleanText(item.endDate),
+      description: cleanText(item.description),
+      technologies: '',
+    })),
+    practiceDetails: [],
+    skills,
+    skillDetails: {},
+    experiences: (structuredResume.workExperience || []).map((item) =>
+      compactJoin([item.company, item.position, item.startDate, item.endDate], ' ')
+    ),
+    languages: [],
+    jobIntention: '',
+    textLength: text.length,
+    summary: normalized.slice(0, 1600),
+    structuredResume,
+    parser: 'doubao',
+  };
+}
+
+function isDoubaoConfigured() {
+  return Boolean(process.env.ARK_API_KEY && process.env.DOUBAO_MODEL);
 }
 
 export async function parseProjectResume(fileName, userId = 1) {
@@ -114,31 +194,12 @@ export async function saveUploadedResumeFromMultipart(request, userId = 1) {
 
 function validateResumeUpload(fileName, fileBuffer) {
   const extension = extname(fileName).toLowerCase();
-  if (!['.pdf', '.txt', '.md'].includes(extension)) {
-    throw new Error('当前仅支持上传 PDF、TXT 和 Markdown 简历');
+  if (!['.pdf', '.docx', '.txt', '.md'].includes(extension)) {
+    throw new Error('当前仅支持上传 PDF、DOCX、TXT 和 Markdown 简历');
   }
   if (fileBuffer.length > maxUploadBytes) {
     throw new Error(`简历文件过大，请上传 ${Math.floor(maxUploadBytes / 1024 / 1024)}MB 以内的文件`);
   }
-}
-
-async function extractPdfText(filePath) {
-  if (looksLikeFilePath(pythonPath) && !existsSync(pythonPath)) {
-    throw new Error('Python executable was not found');
-  }
-
-  const { stdout } = await execFileAsync(pythonPath, [pdfExtractScript, filePath], {
-    encoding: 'utf8',
-    windowsHide: true,
-    timeout: 30000,
-    maxBuffer: 10 * 1024 * 1024,
-  });
-
-  return stdout.replace(/\r\n/g, '\n').trim();
-}
-
-function looksLikeFilePath(value) {
-  return /[\\/]/.test(value) || /^[A-Za-z]:/.test(value);
 }
 
 function extractProfile(rawText) {
@@ -432,6 +493,14 @@ function extractJobIntention(text) {
 function pick(pattern, text = '', groupIndex = 1) {
   const match = String(text).match(pattern);
   return match ? match[groupIndex] || match[1] || match[0] : '';
+}
+
+function cleanText(value) {
+  return String(value ?? '').trim();
+}
+
+function compactJoin(values = [], separator = ' ') {
+  return values.map(cleanText).filter(Boolean).join(separator);
 }
 
 function readRequestBuffer(request) {

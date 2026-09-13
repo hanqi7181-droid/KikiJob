@@ -109,14 +109,14 @@ export function OnboardingWizard({
 
   const uploadResumeFile = async (file) => {
     if (!file || !uploadResume) return;
-    const allowedExtensions = /\.(pdf|txt|md)$/i;
+    const allowedExtensions = /\.(pdf|docx|txt|md)$/i;
     if (!allowedExtensions.test(file.name)) {
       setDraft((current) => ({
         ...sanitizeOnboardingDraft(current),
         resume: {
           ...sanitizeOnboardingDraft(current).resume,
           uploadStatus: 'failed',
-          error: '当前后端支持 PDF、TXT、Markdown。DOC/DOCX 解析尚未接入。',
+          error: '当前后端支持 PDF、DOCX、TXT、Markdown。扫描版 PDF 暂不支持 OCR。',
         },
       }));
       return;
@@ -155,9 +155,7 @@ export function OnboardingWizard({
           parsedProfile,
           pendingProfile: parsedProfileDraft,
         },
-        profile: hasConfirmedProfile(safeCurrent.profile)
-          ? safeCurrent.profile
-          : applyParsedProfileWithTouched(safeCurrent.profile, parsedProfileDraft),
+        profile: applyParsedProfileWithTouched(safeCurrent.profile, parsedProfileDraft),
       };
       });
       onProfileSaved?.({
