@@ -135,6 +135,7 @@ function LoginStep({
   const [pendingAction, setPendingAction] = useState('');
 
   const account = String(login.account || '').trim();
+  const loginStatus = String(login.sessionStatus || '').trim();
   const setLoginStatus = (message) => {
     setStatus(message);
     setField('login', 'sessionStatus', message, { touched: false });
@@ -261,6 +262,11 @@ function LoginStep({
                   ? '登录 / 注册'
                   : '验证码登录'}
           </button>
+          {loginStatus && (
+            <p className="login-action-status" role="status" aria-live="polite">
+              {loginStatus}
+            </p>
+          )}
         </div>
         <label className="check-row agreement-row">
           <input

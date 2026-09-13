@@ -7247,6 +7247,15 @@ body,
   transform: translateY(0);
 }
 
+.login-action-status {
+  margin: 8px 0 0;
+  color: #5e6d84;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.35;
+  text-align: center;
+}
+
 .sms-login-row {
   display: grid;
   grid-template-columns: 1fr auto;

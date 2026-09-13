@@ -39,6 +39,8 @@
 - 对已从公开校招日程页看到的招聘批次，岗位池会写入 `publishedAt`/`deadline`；未公开时间的官网岗位入口不编造时间。
 - `normalizeImportedJob` 和 PostgreSQL `addImportedJob` 已支持写入 `publishedAt`、`deadline` 到现有 `jobs.published_at`、`jobs.deadline` 字段。
 - 已优化 Chrome 插件的 MokaHR V2 重复经历添加：扩大“添加/新增/增加/+”按钮识别，支持“新增一条实习经历”等文案；点击添加时改为滚动到按钮并模拟 pointer/mouse/click 事件；等待动态新增区块时间从 3 秒放宽到 6 秒。
+- `/api/health` 已增加 `doubaoConfigured` 布尔值，不暴露密钥，只用于确认当前后端进程是否读到了 `ARK_API_KEY` 和 `DOUBAO_MODEL`。
+- 邮箱验证码登录已恢复轻量状态提示：验证码发送、验证失败、缺少验证码等信息会显示在登录按钮下方，但不恢复“会话状态”说明卡片。
 - 没有修改上传页面、登录、数据库 schema 或无关 UI。
 - 没有把 Docling 作为默认依赖上线；没有新增 LangChain、RAG、Agent 框架。
 
@@ -62,6 +64,7 @@
 - `src/onboarding/OnboardingWizard.jsx`
 - `src/onboarding/steps.jsx`
 - `src/styles.css`
+- `server/index.js`
 - `src/onboarding/onboardingState.js`
 - `src/onboarding/onboardingState.test.js`
 - `server/llmProvider.test.js`
@@ -96,6 +99,7 @@
 - 如需稳定拿到每个岗位的截止时间、发布时间和详情字段，后续需要为重点公司做独立 adapter 或接官方/第三方岗位 API；当前阶段不做深爬、不做登录态抓取。
 - 已新增后端测试覆盖标签推荐、岗位种子池和岗位入口池：`server/jobCrawler.test.js` mock 官网 HTML，验证大厂/互联网/AI/杭州偏好会返回带标签的推荐公司和岗位，并验证央国企/通信/广州可命中三大运营商方向种子岗位，牛客等零预算岗位搜索入口会在点击智能推荐后生成。
 - 插件重复经历测试已覆盖 3 条实习经历自动新增和“新增一条实习经历”按钮文案。
+- Doubao 本地自测命令 `npm run resume:parse:doubao` 已成功返回结构化 JSON；当前本地 `http://localhost:8788/api/health` 显示 `doubaoConfigured: True`。
 
 ## 已知问题
 

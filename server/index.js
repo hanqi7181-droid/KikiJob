@@ -39,6 +39,7 @@ const server = http.createServer(async (request, response) => {
         database: database.provider,
         databasePath: database.provider === 'sqlite' ? database.path : undefined,
         storage: process.env.SUPABASE_URL ? 'supabase-configured' : 'local',
+        doubaoConfigured: Boolean(process.env.ARK_API_KEY && process.env.DOUBAO_MODEL),
       });
     }
 
