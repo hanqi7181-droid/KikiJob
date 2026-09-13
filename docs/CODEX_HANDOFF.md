@@ -45,6 +45,7 @@
 - 如果 Doubao 返回合法但字段为空的 JSON，后端现在会保留 Doubao 结果链路，同时用本地规则补充可识别的邮箱、手机号、学校、经历等字段，并标记 `parseWarning: AI_RETURNED_EMPTY_FIELDS`。
 - 上传页会把解析诊断转换成轻量中文提示；AI 解析失败或字段较少不会阻止用户继续手动填写。
 - 已新增 Node 侧普通 PDF 文本抽取：`server/documentParser.js` 会先用 `pdf-parse` 读取 PDF 文本层，解决 Railway 纯 Node 部署里没有 Python/pdfplumber 导致普通 PDF 也提取失败的问题。扫描版 PDF 仍暂不做 OCR。
+- 推荐页的岗位结果已分成两栏：`推荐岗位` 展示具体岗位/官网入口，`搜索推荐` 展示牛客、实习僧、应届生等平台搜索入口；搜索入口按钮文案为 `跳转搜索`，不再写 `官方投递`。
 - 没有修改上传页面、登录、数据库 schema 或无关 UI。
 - 没有把 Docling 作为默认依赖上线；没有新增 LangChain、RAG、Agent 框架。
 

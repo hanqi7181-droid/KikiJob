@@ -934,6 +934,8 @@ function RecommendPage({
   const jobViewModels = useMemo(() => safeScoredJobs.map(normalizeJobViewModel), [safeScoredJobs]);
   const filterOptions = useMemo(() => buildRecommendFilterOptions(jobViewModels), [jobViewModels]);
   const visibleJobs = useMemo(() => filterRecommendedJobs(jobViewModels, filters), [filters, jobViewModels]);
+  const directJobs = useMemo(() => visibleJobs.filter((job) => !isSearchRecommendation(job)), [visibleJobs]);
+  const searchJobs = useMemo(() => visibleJobs.filter(isSearchRecommendation), [visibleJobs]);
   const selectedIndex = visibleJobs.findIndex((job) => job.id === selectedJobId);
   const selectedJob = selectedIndex >= 0 ? visibleJobs[selectedIndex] : null;
 
@@ -1030,19 +1032,29 @@ function RecommendPage({
         </div>
 
         {visibleJobs.length ? (
-          <div className="recommend-job-grid">
-            {visibleJobs.map((job) => (
-              <RecommendJobCard
-                applicationDetails={safeApplicationDetails}
-                handleApplicationDetailChange={handleApplicationDetailChange}
-                handleDeleteJob={handleDeleteJob}
-                handleStatusChange={handleStatusChange}
-                job={job}
-                key={job.id}
-                onOpenDetail={openJobDetail}
-                statusMap={safeStatusMap}
-              />
-            ))}
+          <div className="recommend-job-columns">
+            <RecommendJobColumn
+              applicationDetails={safeApplicationDetails}
+              emptyText="没有匹配的具体岗位入口。"
+              handleApplicationDetailChange={handleApplicationDetailChange}
+              handleDeleteJob={handleDeleteJob}
+              handleStatusChange={handleStatusChange}
+              jobs={directJobs}
+              onOpenDetail={openJobDetail}
+              statusMap={safeStatusMap}
+              title="推荐岗位"
+            />
+            <RecommendJobColumn
+              applicationDetails={safeApplicationDetails}
+              emptyText="没有匹配的平台搜索入口。"
+              handleApplicationDetailChange={handleApplicationDetailChange}
+              handleDeleteJob={handleDeleteJob}
+              handleStatusChange={handleStatusChange}
+              jobs={searchJobs}
+              onOpenDetail={openJobDetail}
+              statusMap={safeStatusMap}
+              title="搜索推荐"
+            />
           </div>
         ) : (
           <EmptyRecommendState title="没有符合筛选的岗位" text="试试清空筛选，或先导入真实 JD 后再查看推荐。" />
@@ -1065,6 +1077,45 @@ function RecommendPage({
           selectJob={(job, tab = detailTab) => openJobDetail(job, tab)}
           statusMap={safeStatusMap}
         />
+      )}
+    </div>
+  );
+}
+
+function RecommendJobColumn({
+  applicationDetails,
+  emptyText,
+  handleApplicationDetailChange,
+  handleDeleteJob,
+  handleStatusChange,
+  jobs,
+  onOpenDetail,
+  statusMap,
+  title,
+}) {
+  return (
+    <div className="recommend-job-column">
+      <div className="recommend-column-head">
+        <h4>{title}</h4>
+        <span>{jobs.length} 个</span>
+      </div>
+      {jobs.length ? (
+        <div className="recommend-job-grid">
+          {jobs.map((job) => (
+            <RecommendJobCard
+              applicationDetails={applicationDetails}
+              handleApplicationDetailChange={handleApplicationDetailChange}
+              handleDeleteJob={handleDeleteJob}
+              handleStatusChange={handleStatusChange}
+              job={job}
+              key={job.id}
+              onOpenDetail={onOpenDetail}
+              statusMap={statusMap}
+            />
+          ))}
+        </div>
+      ) : (
+        <EmptyRecommendState title="暂无内容" text={emptyText} />
       )}
     </div>
   );
@@ -1157,6 +1208,7 @@ function RecommendJobCard({
   const safeStatusMap = statusMap && typeof statusMap === 'object' ? statusMap : {};
   const detail = safeApplicationDetails[job.id] || { status: safeStatusMap[job.id] || '待确认', notes: '', followUpAt: '' };
   const saved = ['收藏/待投', '已加入队列', '已投递'].includes(detail.status);
+  const searchRecommendation = isSearchRecommendation(job);
 
   const toggleSaved = (event) => {
     event.stopPropagation();
@@ -1236,7 +1288,7 @@ function RecommendJobCard({
           window.open(job.applyUrl, '_blank', 'noreferrer');
         }}>
           <ExternalLink size={16} />
-          官方投递
+          {searchRecommendation ? '跳转搜索' : '官方投递'}
         </button>
         <button className="secondary-action" onClick={(event) => {
           event.stopPropagation();
@@ -1277,6 +1329,7 @@ function JobDetailDrawer({
   const jdSections = splitJdSections(job.jdText);
   const analysis = buildJobAnalysis(job);
   const canCalculate = Boolean(job.jdText && (analysis.matchItems.length || analysis.gaps.length || analysis.risks.length));
+  const searchRecommendation = isSearchRecommendation(job);
 
   const toggleSaved = () => handleStatusChange(job.id, saved ? '待确认' : '收藏/待投');
   const deleteFavorite = () => {
@@ -1333,9 +1386,11 @@ function JobDetailDrawer({
                   <InfoItem label="最后更新" value={job.sourceUpdatedAt || '暂未公开'} />
                 </div>
                 {job.applyUrl ? (
-                  <a className="apply-link" href={job.applyUrl} target="_blank" rel="noreferrer">打开官方投递链接</a>
+                  <a className="apply-link" href={job.applyUrl} target="_blank" rel="noreferrer">
+                    {searchRecommendation ? '打开搜索结果' : '打开官方投递链接'}
+                  </a>
                 ) : (
-                  <p className="muted-text">官方投递链接暂未导入。</p>
+                  <p className="muted-text">{searchRecommendation ? '搜索入口暂未导入。' : '官方投递链接暂未导入。'}</p>
                 )}
               </section>
 
@@ -1704,6 +1759,10 @@ function normalizeJobViewModel(job) {
     jdSummary: summarizeJd(jdText),
     isExpired: Boolean(deadline && isPastDate(deadline)),
   };
+}
+
+function isSearchRecommendation(job = {}) {
+  return job.channel === 'job-board-search';
 }
 
 function buildRecommendFilterOptions(jobs) {
