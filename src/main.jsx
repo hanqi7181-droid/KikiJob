@@ -3,7 +3,6 @@ import { createRoot } from 'react-dom/client';
 import {
   BadgeCheck,
   Bell,
-  Bookmark,
   BriefcaseBusiness,
   Building2,
   CalendarDays,
@@ -16,6 +15,7 @@ import {
   Filter,
   Globe2,
   GraduationCap,
+  Heart,
   LayoutGrid,
   List,
   MapPin,
@@ -32,7 +32,6 @@ import {
   clearApplicationHistory,
   clearProfileData,
   deleteResume,
-  deleteJob,
   fetchBootstrap,
   fetchAuthProviders,
   fetchResumes,
@@ -313,8 +312,7 @@ function App() {
   const crmStats = useMemo(() => {
     return applicationStatuses.map((status) => ({
       status,
-      count: scoredJobs.filter((job) => canonicalApplicationStatus(applicationDetails[job.id]?.status || statusMap[job.id]) === status)
-        .length,
+      count: scoredJobs.filter((job) => applicationStatusForJob(job.id, applicationDetails, statusMap) === status).length,
     }));
   }, [applicationDetails, scoredJobs, statusMap]);
 
@@ -452,7 +450,7 @@ function App() {
   };
 
   const handleApplicationDetailChange = (jobId, patch) => {
-    const current = applicationDetails[jobId] || { status: statusMap[jobId] || '收藏/待投', notes: '', followUpAt: '' };
+    const current = applicationDetails[jobId] || { status: statusMap[jobId] || '待确认', notes: '', followUpAt: '' };
     const normalizedPatch = {
       ...patch,
       status: canonicalApplicationStatus(patch.status || current.status || statusMap[jobId]),
@@ -467,30 +465,6 @@ function App() {
     saveApplicationStatus(jobId, next.status, { ...next, followUpAt: next.followUpAt || next.nextActionAt }).catch(() =>
       setApiState('投递记录保存失败，请检查后端服务')
     );
-  };
-
-  const handleDeleteJob = (job) => {
-    if (job.isDemo) {
-      setApiState('示例岗位不能删除');
-      return;
-    }
-
-    if (apiState !== connectedText) {
-      setApiState('请先启动后端，再删除真实岗位');
-      return;
-    }
-
-    deleteJob(job.id)
-      .then(() => {
-        setJobs((current) => current.filter((item) => item.id !== job.id));
-        setStatusMap((current) => {
-          const next = { ...current };
-          delete next[job.id];
-          return next;
-        });
-        setApiState('真实岗位已删除');
-      })
-      .catch((error) => setApiState(error.message || '删除岗位失败'));
   };
 
   const handleSmartRecommend = () => {
@@ -602,7 +576,6 @@ function App() {
           <RecommendPage
             applicationDetails={applicationDetails}
             handleApplicationDetailChange={handleApplicationDetailChange}
-            handleDeleteJob={handleDeleteJob}
             handleStatusChange={handleStatusChange}
             profile={profile}
             recommendImportState={recommendImportState}
@@ -902,7 +875,6 @@ function CoreRoutePage({ children, description, eyebrow, title }) {
 function RecommendPage({
   applicationDetails,
   handleApplicationDetailChange,
-  handleDeleteJob,
   handleStatusChange,
   profile,
   recommendedCompanies,
@@ -936,6 +908,10 @@ function RecommendPage({
   const visibleJobs = useMemo(() => filterRecommendedJobs(jobViewModels, filters), [filters, jobViewModels]);
   const directJobs = useMemo(() => visibleJobs.filter((job) => !isSearchRecommendation(job)), [visibleJobs]);
   const searchJobs = useMemo(() => visibleJobs.filter(isSearchRecommendation), [visibleJobs]);
+  const favoriteJobs = useMemo(
+    () => visibleJobs.filter((job) => isFavoriteJob(job, safeApplicationDetails, safeStatusMap)),
+    [safeApplicationDetails, safeStatusMap, visibleJobs]
+  );
   const selectedIndex = visibleJobs.findIndex((job) => job.id === selectedJobId);
   const selectedJob = selectedIndex >= 0 ? visibleJobs[selectedIndex] : null;
 
@@ -1008,6 +984,33 @@ function RecommendPage({
       <section className="recommend-jobs">
         <div className="section-head compact">
           <div>
+            <p className="eyebrow">Saved</p>
+            <h3>我的收藏</h3>
+          </div>
+        </div>
+
+        {favoriteJobs.length ? (
+          <div className="recommend-job-grid favorite-job-grid">
+            {favoriteJobs.map((job) => (
+              <RecommendJobCard
+                applicationDetails={safeApplicationDetails}
+                handleApplicationDetailChange={handleApplicationDetailChange}
+                handleStatusChange={handleStatusChange}
+                job={job}
+                key={job.id}
+                onOpenDetail={openJobDetail}
+                statusMap={safeStatusMap}
+              />
+            ))}
+          </div>
+        ) : (
+          <EmptyRecommendState title="暂无收藏" text="点推荐卡片右上角爱心，把想投的岗位放到这里。" />
+        )}
+      </section>
+
+      <section className="recommend-jobs">
+        <div className="section-head compact">
+          <div>
             <p className="eyebrow">Jobs</p>
             <h3>推荐岗位</h3>
           </div>
@@ -1037,7 +1040,6 @@ function RecommendPage({
               applicationDetails={safeApplicationDetails}
               emptyText="没有匹配的具体岗位入口。"
               handleApplicationDetailChange={handleApplicationDetailChange}
-              handleDeleteJob={handleDeleteJob}
               handleStatusChange={handleStatusChange}
               jobs={directJobs}
               onOpenDetail={openJobDetail}
@@ -1048,7 +1050,6 @@ function RecommendPage({
               applicationDetails={safeApplicationDetails}
               emptyText="没有匹配的平台搜索入口。"
               handleApplicationDetailChange={handleApplicationDetailChange}
-              handleDeleteJob={handleDeleteJob}
               handleStatusChange={handleStatusChange}
               jobs={searchJobs}
               onOpenDetail={openJobDetail}
@@ -1066,7 +1067,6 @@ function RecommendPage({
           applicationDetails={safeApplicationDetails}
           detailTab={detailTab}
           handleApplicationDetailChange={handleApplicationDetailChange}
-          handleDeleteJob={handleDeleteJob}
           handleStatusChange={handleStatusChange}
           job={selectedJob}
           onClose={() => setSelectedJobId(null)}
@@ -1086,7 +1086,6 @@ function RecommendJobColumn({
   applicationDetails,
   emptyText,
   handleApplicationDetailChange,
-  handleDeleteJob,
   handleStatusChange,
   jobs,
   onOpenDetail,
@@ -1105,7 +1104,6 @@ function RecommendJobColumn({
             <RecommendJobCard
               applicationDetails={applicationDetails}
               handleApplicationDetailChange={handleApplicationDetailChange}
-              handleDeleteJob={handleDeleteJob}
               handleStatusChange={handleStatusChange}
               job={job}
               key={job.id}
@@ -1197,7 +1195,6 @@ function RecommendFilters({ clearFilters, filters, filterOptions, isSheetOpen, s
 function RecommendJobCard({
   applicationDetails,
   handleApplicationDetailChange,
-  handleDeleteJob,
   handleStatusChange,
   job,
   onOpenDetail,
@@ -1206,8 +1203,8 @@ function RecommendJobCard({
   const [notesOpen, setNotesOpen] = useState(false);
   const safeApplicationDetails = applicationDetails && typeof applicationDetails === 'object' ? applicationDetails : {};
   const safeStatusMap = statusMap && typeof statusMap === 'object' ? statusMap : {};
-  const detail = safeApplicationDetails[job.id] || { status: safeStatusMap[job.id] || '待确认', notes: '', followUpAt: '' };
-  const saved = ['收藏/待投', '已加入队列', '已投递'].includes(detail.status);
+  const detail = safeApplicationDetails[job.id] || { status: applicationStatusForJob(job.id, safeApplicationDetails, safeStatusMap), notes: '', followUpAt: '' };
+  const saved = isFavoriteStatus(detail.status);
   const searchRecommendation = isSearchRecommendation(job);
 
   const toggleSaved = (event) => {
@@ -1215,11 +1212,7 @@ function RecommendJobCard({
     handleStatusChange(job.id, saved ? '待确认' : '收藏/待投');
   };
   const deleteFavorite = () => {
-    if (job.isDemo) {
-      handleStatusChange(job.id, '待确认');
-      return;
-    }
-    handleDeleteJob(job);
+    handleStatusChange(job.id, '待确认');
   };
 
   return (
@@ -1241,8 +1234,8 @@ function RecommendJobCard({
           <p>{job.company}</p>
           <h4>{job.title}</h4>
         </div>
-        <button className={saved ? 'saved-button active' : 'saved-button'} onClick={toggleSaved} title={saved ? '取消收藏' : '收藏岗位'}>
-          <Bookmark size={17} />
+        <button className={saved ? 'saved-button active' : 'saved-button'} onClick={toggleSaved} title={saved ? '取消收藏' : '收藏岗位'} aria-label={saved ? '取消收藏' : '收藏岗位'}>
+          <Heart size={17} fill={saved ? 'currentColor' : 'none'} />
         </button>
       </div>
 
@@ -1294,13 +1287,15 @@ function RecommendJobCard({
           event.stopPropagation();
           setNotesOpen((open) => !open);
         }}>编辑备注</button>
-        <button className="danger-action" onClick={(event) => {
-          event.stopPropagation();
-          deleteFavorite();
-        }}>
-          <Trash2 size={16} />
-          删除收藏
-        </button>
+        {saved && (
+          <button className="danger-action" onClick={(event) => {
+            event.stopPropagation();
+            deleteFavorite();
+          }}>
+            <Trash2 size={16} />
+            取消收藏
+          </button>
+        )}
       </div>
     </article>
   );
@@ -1310,7 +1305,6 @@ function JobDetailDrawer({
   applicationDetails,
   detailTab,
   handleApplicationDetailChange,
-  handleDeleteJob,
   handleStatusChange,
   job,
   nextJob,
@@ -1324,8 +1318,8 @@ function JobDetailDrawer({
   const [suggestionStates, setSuggestionStates] = useState({});
   const safeApplicationDetails = applicationDetails && typeof applicationDetails === 'object' ? applicationDetails : {};
   const safeStatusMap = statusMap && typeof statusMap === 'object' ? statusMap : {};
-  const detail = safeApplicationDetails[job.id] || { status: safeStatusMap[job.id] || '待确认', notes: '', followUpAt: '' };
-  const saved = ['收藏/待投', '已加入队列', '已投递'].includes(detail.status);
+  const detail = safeApplicationDetails[job.id] || { status: applicationStatusForJob(job.id, safeApplicationDetails, safeStatusMap), notes: '', followUpAt: '' };
+  const saved = isFavoriteStatus(detail.status);
   const jdSections = splitJdSections(job.jdText);
   const analysis = buildJobAnalysis(job);
   const canCalculate = Boolean(job.jdText && (analysis.matchItems.length || analysis.gaps.length || analysis.risks.length));
@@ -1333,13 +1327,8 @@ function JobDetailDrawer({
 
   const toggleSaved = () => handleStatusChange(job.id, saved ? '待确认' : '收藏/待投');
   const deleteFavorite = () => {
-    if (!window.confirm(`确定删除或取消收藏「${job.title}」吗？`)) return;
-    if (job.isDemo) {
-      handleStatusChange(job.id, '待确认');
-      return;
-    }
-    handleDeleteJob(job);
-    onClose();
+    if (!window.confirm(`确定取消收藏「${job.title}」吗？`)) return;
+    handleStatusChange(job.id, '待确认');
   };
   const updateSuggestionState = (index, status) => {
     setSuggestionStates((current) => ({ ...current, [index]: current[index] === status ? '' : status }));
@@ -1400,6 +1389,7 @@ function JobDetailDrawer({
                   <label>
                     <span>当前状态</span>
                     <select value={detail.status || '待确认'} onChange={(event) => handleStatusChange(job.id, event.target.value)}>
+                      <option>待确认</option>
                       {applicationStatuses.map((status) => (
                         <option key={status}>{status}</option>
                       ))}
@@ -1498,7 +1488,7 @@ function JobDetailDrawer({
           <button className={saved ? 'secondary-action active' : 'secondary-action'} onClick={toggleSaved}>{saved ? '取消收藏' : '收藏'}</button>
           <button className="secondary-action" onClick={() => onSwitchTab(detailTab === 'match' ? 'detail' : 'match')}>{detailTab === 'match' ? '返回详情' : '查看匹配'}</button>
           <button className="primary-action" disabled={!job.applyUrl} onClick={() => onStartAssist?.(job.applyUrl)}>开始辅助投递</button>
-          <button className="danger-action" onClick={deleteFavorite}>删除收藏</button>
+          {saved && <button className="danger-action" onClick={deleteFavorite}>取消收藏</button>}
         </footer>
       </aside>
     </div>
@@ -1545,8 +1535,9 @@ function EmptyRecommendState({ text, title }) {
 
 function canonicalApplicationStatus(status) {
   const value = String(status || '').trim();
+  if (!value) return '待确认';
+  if (value === '待确认') return '待确认';
   const aliases = {
-    待确认: '收藏/待投',
     已加入队列: '收藏/待投',
     不合适: '未通过',
     面试: '一面',
@@ -1556,26 +1547,41 @@ function canonicalApplicationStatus(status) {
     success: '已投递',
   };
   if (applicationStatuses.includes(value)) return value;
-  return aliases[value] || '收藏/待投';
+  return aliases[value] || '待确认';
+}
+
+function applicationStatusForJob(jobId, applicationDetails = {}, statusMap = {}) {
+  return canonicalApplicationStatus(applicationDetails[jobId]?.status || statusMap[jobId] || '');
+}
+
+function isFavoriteStatus(status = '') {
+  return ['收藏/待投', '准备材料', '填表中', '已投递', '笔试', '一面', '二面', '终面', 'Offer'].includes(canonicalApplicationStatus(status));
+}
+
+function isFavoriteJob(job, applicationDetails = {}, statusMap = {}) {
+  return isFavoriteStatus(applicationStatusForJob(job.id, applicationDetails, statusMap));
 }
 
 function buildApplicationRecords(scoredJobs = [], applicationDetails = {}, statusMap = {}) {
-  const records = scoredJobs.map((job) => {
-    const normalizedJob = normalizeJobViewModel(job);
-    const detail = normalizeApplicationDetail(normalizedJob, applicationDetails[job.id], statusMap[job.id]);
-    return {
-      ...normalizedJob,
-      detail,
-      status: detail.status,
-      notes: detail.notes,
-      followUpAt: detail.followUpAt,
-      nextAction: detail.nextAction,
-      nextActionAt: detail.nextActionAt,
-      appliedAt: detail.appliedAt,
-      submittedAt: detail.submittedAt || detail.appliedAt,
-      updatedAt: detail.updatedAt || normalizedJob.sourceUpdatedAt || normalizedJob.fetchedAt || '',
-    };
-  });
+  const records = scoredJobs
+    .map((job) => {
+      const normalizedJob = normalizeJobViewModel(job);
+      const detail = normalizeApplicationDetail(normalizedJob, applicationDetails[job.id], statusMap[job.id]);
+      if (detail.status === '待确认') return null;
+      return {
+        ...normalizedJob,
+        detail,
+        status: detail.status,
+        notes: detail.notes,
+        followUpAt: detail.followUpAt,
+        nextAction: detail.nextAction,
+        nextActionAt: detail.nextActionAt,
+        appliedAt: detail.appliedAt,
+        submittedAt: detail.submittedAt || detail.appliedAt,
+        updatedAt: detail.updatedAt || normalizedJob.sourceUpdatedAt || normalizedJob.fetchedAt || '',
+      };
+    })
+    .filter(Boolean);
 
   const duplicateJobKeys = countBy(records, (record) => duplicateJobKey(record));
   const submittedKeys = countBy(
@@ -1718,8 +1724,9 @@ function statusClassName(status) {
     未通过: 'failed',
     已撤回: 'withdrawn',
     结果未知: 'unknown',
+    待确认: 'unknown',
   };
-  return groups[status] || 'saved';
+  return groups[status] || 'unknown';
 }
 
 function ensureArray(value) {
