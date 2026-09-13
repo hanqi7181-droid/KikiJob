@@ -71,7 +71,7 @@ export function matchScannedFields(scannedFields = [], answerRows = []) {
 }
 
 export function matchScannedField(scannedField, canonicalRows = []) {
-  const rows = ensureCanonicalRows(canonicalRows);
+  const rows = ensureCanonicalRows(canonicalRows).filter((row) => rowCompatible(scannedField, row));
   const textBundle = buildFieldText(scannedField);
   if (isSensitiveField(textBundle)) {
     return emptyResult(scannedField, 'sensitive_field', '低', 'high', '敏感字段不得根据简历推断');
@@ -156,28 +156,35 @@ function matchByAutocomplete(field, rows) {
 }
 
 function matchByExactName(field, rows) {
-  const values = [field.label, field.name, field.id, field.placeholder].map(normalize).filter(Boolean);
+  const values = [field.label, field.name, field.id].map(normalize).filter(Boolean);
+  const placeholder = normalizePromptText(field.placeholder || '');
   for (const row of rows) {
     if (values.includes(normalize(row.label)) || values.includes(normalize(row.shortLabel))) {
-      return candidate(row, 96, 'exact_field_name', '字段 label/name/id/placeholder 与标准字段精确匹配', '高');
+      return candidate(row, 96, 'exact_field_name', '字段 label/name/id 与标准字段精确匹配', '高');
+    }
+    if (placeholder && (placeholder === normalize(row.label) || placeholder === normalize(row.shortLabel))) {
+      return candidate(row, 70, 'placeholder_hint', 'placeholder 仅作为弱提示命中', '中');
     }
   }
   return null;
 }
 
 function matchByAliases(field, rows) {
-  const strongText = normalize([field.label, field.name, field.id, field.placeholder, field.autocomplete].filter(Boolean).join(' '));
+  const strongText = normalize([field.label, field.name, field.id, field.autocomplete].filter(Boolean).join(' '));
+  const weakText = normalizePromptText(field.placeholder || '');
   const matches = rows
     .map((row) => {
       const hit = row.tokens.find((token) => token && strongText.includes(token));
-      return hit ? candidate(row, 88 + Math.min(hit.length, 10), 'alias_dictionary', `同义词 "${hit}" 命中`, '高') : null;
+      if (hit) return candidate(row, 88 + Math.min(hit.length, 10), 'alias_dictionary', `同义词 "${hit}" 命中`, '高');
+      const weakHit = row.tokens.find((token) => token && weakText.includes(token));
+      return weakHit ? candidate(row, 68 + Math.min(weakHit.length, 8), 'placeholder_alias', `placeholder 弱提示 "${weakHit}" 命中`, '中') : null;
     })
     .filter(Boolean);
   return best(matches);
 }
 
 function matchByCombinedAttributes(field, rows) {
-  const text = normalize([field.label, field.name, field.id, field.placeholder, field.inputType, field.elementType].filter(Boolean).join(' '));
+  const text = normalize([field.label, field.name, field.id, field.inputType, field.elementType].filter(Boolean).join(' '));
   const matches = rows
     .map((row) => {
       const hitCount = row.tokens.filter((token) => token && text.includes(token)).length;
@@ -239,6 +246,47 @@ function buildFieldText(field = {}) {
   ]
     .filter(Boolean)
     .join(' ');
+}
+
+function rowCompatible(field = {}, row = {}) {
+  const fieldGroup = groupKindFromText([field.sectionType, field.section, field.group, field.label, field.nearbyText].filter(Boolean).join(' '));
+  const rowGroup = groupKindFromText([row.group, row.label, row.sourceLabel].filter(Boolean).join(' '));
+  if (fieldGroup && rowGroup && fieldGroup !== rowGroup) return false;
+
+  const fieldKind = fieldKindFromText([field.label, field.name, field.id, normalizePromptText(field.placeholder), field.nearbyText].filter(Boolean).join(' '));
+  const rowKind = fieldKindFromText([row.label, row.sourceLabel, row.aliases].filter(Boolean).join(' '));
+  if (fieldKind && rowKind && fieldKind !== rowKind) return false;
+
+  return true;
+}
+
+function groupKindFromText(text = '') {
+  if (/项目|project/i.test(text)) return 'project';
+  if (/实习|工作经历|工作经验|公司名称|职位名称|internship|work experience/i.test(text)) return 'internship';
+  if (/教育|学历|学习|院校|学校|专业|education/i.test(text)) return 'education';
+  if (/获奖|奖项|荣誉|实践|校园经历|award|honor/i.test(text)) return 'award';
+  return '';
+}
+
+function fieldKindFromText(text = '') {
+  if (/邮箱|email|e-mail/i.test(text)) return 'email';
+  if (/手机|电话|phone|mobile/i.test(text)) return 'phone';
+  if (/开始|结束|起始|截止|入学|毕业|离职|获奖时间|出生|生日|时间|\b(date|from|to|birth)\b/i.test(text)) return 'date';
+  if (/项目中职责|职责描述|项目描述|工作职责|经历描述|主要职责|主要贡献|项目贡献|描述|内容|description|responsibilities/i.test(text)) {
+    return 'description';
+  }
+  if (/职位|岗位|角色|担任职责|担任角色|position|role|title/i.test(text)) return 'role';
+  if (/学校|院校|大学|school|university/i.test(text)) return 'school';
+  if (/公司|单位|雇主|company|employer/i.test(text)) return 'company';
+  if (/部门|事业部|department|division/i.test(text)) return 'department';
+  if (/专业|major|discipline/i.test(text)) return 'major';
+  if (/学历|学位|degree/i.test(text)) return 'degree';
+  if (/名称|姓名|name/i.test(text)) return 'name';
+  return '';
+}
+
+function normalizePromptText(value = '') {
+  return normalize(String(value).replace(/请(?:输入|填写|选择|上传)|请输入|请填写|请选择|请上传|选择|输入|填写|上传/g, ''));
 }
 
 function stripIndex(label = '') {

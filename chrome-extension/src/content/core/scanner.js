@@ -172,7 +172,6 @@
     labels.push(element.getAttribute('aria-label') || '');
     labels.push(ariaLabelText(element));
     labels.push(fieldsetLegendText(element));
-    labels.push(element.placeholder || '');
     return compactText(labels.join(' ')).slice(0, 220);
   }
 

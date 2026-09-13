@@ -5,7 +5,7 @@
     if (!groupCompatible(element, step, adapter)) return 0;
     const text = root.utils.norm(root.scanner.textAround(element));
     const strongText = root.utils.norm(
-      [element.name, element.id, element.placeholder, element.getAttribute('aria-label')].filter(Boolean).join(' ')
+      [element.name, element.id, element.getAttribute('aria-label')].filter(Boolean).join(' ')
     );
     const keys = buildKeys(step, adapter);
     let score = 0;

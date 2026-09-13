@@ -162,6 +162,10 @@ function normalizeText(value = '') {
   return value.toLowerCase().replace(/[\s/_-]+/g, '');
 }
 
+function normalizePromptText(value = '') {
+  return normalizeText(String(value).replace(/请(?:输入|填写|选择|上传)|请输入|请填写|请选择|请上传|选择|输入|填写|上传/g, ''));
+}
+
 function detectPlatform(url = '') {
   const normalizedUrl = url.toLowerCase();
   return platformTemplates.find((template) => template.patterns.some((pattern) => normalizedUrl.includes(pattern))) || {
@@ -172,25 +176,46 @@ function detectPlatform(url = '') {
 }
 
 function scoreMapping(scannedField, mapping) {
-  if (scannedField.sourceLabel === mapping.sourceLabel || scannedField.sourceLabel === mapping.label) return 96;
-  const haystack = normalizeText([scannedField.label, scannedField.name, scannedField.placeholder].join(' '));
-  const directLabels = [mapping.label, mapping.sourceLabel].filter(Boolean).map(normalizeText);
-  if (directLabels.some((label) => label && haystack.includes(label))) return 92;
+  if (
+    scannedField.sourceLabelSource !== 'placeholder' &&
+    (scannedField.sourceLabel === mapping.sourceLabel || scannedField.sourceLabel === mapping.label)
+  ) {
+    return 96;
+  }
   if (!mappingCompatible(scannedField, mapping)) return 0;
+  const strongLabel = scannedField.labelSource === 'placeholder' ? '' : scannedField.label;
+  const strongSourceLabel = scannedField.sourceLabelSource === 'placeholder' ? '' : scannedField.sourceLabel;
+  const strongHaystack = normalizeText([strongLabel, strongSourceLabel, scannedField.name, scannedField.id, scannedField.autocomplete].join(' '));
+  const weakPlaceholder = normalizePromptText(scannedField.placeholder || '');
+  const directLabels = [mapping.label, mapping.sourceLabel].filter(Boolean).map(normalizeText);
+  if (directLabels.some((label) => label && strongHaystack.includes(label))) return 92;
+  if (directLabels.some((label) => label && weakPlaceholder === label)) return 70;
 
   const aliases = (mapping.aliases || mapping.label || '')
     .split(/[、,/|]/)
     .map((item) => item.trim())
     .filter(Boolean);
 
-  if (aliases.some((alias) => haystack.includes(normalizeText(alias)))) return 88;
-  if (haystack.includes(normalizeText(mapping.label))) return 78;
+  if (aliases.some((alias) => strongHaystack.includes(normalizeText(alias)))) return 88;
+  if (aliases.some((alias) => weakPlaceholder.includes(normalizeText(alias)))) return 68;
+  if (strongHaystack.includes(normalizeText(mapping.label))) return 78;
   if (scannedField.id === mapping.id) return 72;
   return 0;
 }
 
 function mappingCompatible(scannedField, mapping) {
-  const scannedText = [scannedField.label, scannedField.sourceLabel, scannedField.placeholder, scannedField.name].filter(Boolean).join(' ');
+  const scannedText = [
+    scannedField.sectionType,
+    scannedField.section,
+    scannedField.group,
+    scannedField.label,
+    scannedField.sourceLabel,
+    normalizePromptText(scannedField.placeholder || ''),
+    scannedField.name,
+    scannedField.nearbyText,
+  ]
+    .filter(Boolean)
+    .join(' ');
   const mappingText = [mapping.group, mapping.label, mapping.sourceLabel, mapping.aliases].filter(Boolean).join(' ');
   const scannedGroup = groupKind(scannedText);
   const mappedGroup = groupKind(mappingText);
@@ -214,7 +239,7 @@ function groupKind(text = '') {
 function fieldKind(text = '') {
   if (/邮箱|email|e-mail/i.test(text)) return 'email';
   if (/手机|电话|phone|mobile/i.test(text)) return 'phone';
-  if (/开始|结束|起始|截止|入学|毕业|离职|获奖时间|出生|生日|时间|date|from|to|birth/i.test(text)) return 'date';
+  if (/开始|结束|起始|截止|入学|毕业|离职|获奖时间|出生|生日|时间|\b(date|from|to|birth)\b/i.test(text)) return 'date';
   if (/项目中职责|职责描述|项目描述|工作职责|经历描述|主要职责|主要贡献|项目贡献|描述|内容|description|responsibilities/i.test(text)) {
     return 'description';
   }
@@ -273,16 +298,18 @@ function buildPreviewFromFields(url, platformName, platformId, scannedFields, fo
   const fields = scannedFields.map((scannedField, index) => {
     const fieldItem = normalizeScannedField(scannedField, index);
     const best = pickBestMapping(fieldItem, mappingPool);
+    const confidence = best ? confidenceFromScore(best.score) : '未匹配';
+    const matched = confidence !== '低' && confidence !== '未匹配';
     return {
       ...fieldItem,
-      matchedLabel: best?.mapping.label || '',
-      matchedSourceLabel: best?.mapping.sourceLabel || '',
-      matchedGroup: best?.mapping.group || groupFromLabel(fieldItem.sourceLabel || fieldItem.label),
-      aliases: best?.mapping.aliases || '',
-      value: best?.mapping.value || '',
-      confidence: best ? confidenceFromScore(best.score) : '未匹配',
+      matchedLabel: matched ? best?.mapping.label || '' : '',
+      matchedSourceLabel: matched ? best?.mapping.sourceLabel || '' : '',
+      matchedGroup: matched ? best?.mapping.group || groupFromLabel(fieldItem.sourceLabel || fieldItem.label) : groupFromLabel(fieldItem.sourceLabel || fieldItem.label),
+      aliases: matched ? best?.mapping.aliases || '' : '',
+      value: matched ? best?.mapping.value || '' : '',
+      confidence: matched ? confidence : '未匹配',
       score: best?.score || 0,
-      instruction: best ? buildFillInstruction(fieldItem.type) : '需要人工选择字段',
+      instruction: matched ? buildFillInstruction(fieldItem.type) : '需要人工选择字段',
     };
   });
   return {
@@ -299,15 +326,49 @@ function buildPreviewFromFields(url, platformName, platformId, scannedFields, fo
 function normalizeScannedField(scannedField = {}, index = 0) {
   const elementType = scannedField.elementType || scannedField.type || 'input';
   const inputType = scannedField.inputType || scannedField.type || '';
+  const promptLabel = stripPromptWords(scannedField.placeholder || '');
+  const label = scannedField.label || scannedField.field || scannedField.nearbyText || promptLabel || scannedField.name || `字段${index + 1}`;
+  const labelSource = scannedField.labelSource || (scannedField.label
+    ? 'label'
+    : scannedField.field
+      ? 'field'
+      : scannedField.nearbyText
+        ? 'nearbyText'
+        : promptLabel
+          ? 'placeholder'
+          : scannedField.name
+            ? 'name'
+            : 'generated');
+  const sourceLabel =
+    scannedField.sourceLabel || scannedField.label || scannedField.field || scannedField.nearbyText || promptLabel || scannedField.name || '';
+  const sourceLabelSource = scannedField.sourceLabelSource || (scannedField.sourceLabel
+    ? 'sourceLabel'
+    : scannedField.label
+      ? 'label'
+      : scannedField.field
+        ? 'field'
+        : scannedField.nearbyText
+          ? 'nearbyText'
+          : promptLabel
+            ? 'placeholder'
+            : scannedField.name
+            ? 'name'
+              : '');
   return {
     ...scannedField,
     id: scannedField.id || scannedField.fieldId || scannedField.selector || `field-${index + 1}`,
-    label: scannedField.label || scannedField.field || scannedField.placeholder || scannedField.name || scannedField.nearbyText || `字段${index + 1}`,
-    sourceLabel: scannedField.sourceLabel || scannedField.label || scannedField.field || scannedField.placeholder || scannedField.name || '',
+    label,
+    labelSource,
+    sourceLabel,
+    sourceLabelSource,
     type: normalizeFieldType(elementType, inputType),
     name: scannedField.name || scannedField.id || '',
     placeholder: scannedField.placeholder || '',
   };
+}
+
+function stripPromptWords(value = '') {
+  return String(value).replace(/请(?:输入|填写|选择|上传)|请输入|请填写|请选择|请上传|选择|输入|填写|上传/g, '').trim();
 }
 
 function normalizeFieldType(elementType = '', inputType = '') {

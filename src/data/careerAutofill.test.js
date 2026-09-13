@@ -27,6 +27,14 @@ const mappings = [
     aliases: '毕业院校 / University / 学校',
     group: '教育经历',
   },
+  {
+    id: 'internship1Company',
+    label: '实习经历1-公司名称',
+    sourceLabel: '实习经历1-公司名称',
+    value: '招商金科',
+    aliases: '公司名称 / Company / 雇主',
+    group: '实习经历',
+  },
 ];
 
 test('URL-only preview uses Ctrip template when host is known', () => {
@@ -54,4 +62,42 @@ test('extension scan preview uses every scanned DOM field instead of generic URL
   assert.equal(preview.fields[0].value, '郑涵亓');
   assert.equal(preview.fields[2].value, '香港城市大学');
   assert.equal(preview.fields[3].confidence, '未匹配');
+});
+
+test('placeholder-only scan is not treated as a reliable field label', () => {
+  const preview = buildAutofillPreviewFromScannedFields(
+    {
+      url: 'https://jobs.example.com/apply',
+      adapter: 'generic',
+      fields: [{ fieldId: 'field-1', elementType: 'input', inputType: 'text', placeholder: '请输入邮箱' }],
+    },
+    mappings,
+  );
+
+  assert.equal(preview.fields[0].matchedLabel, '');
+  assert.equal(preview.fields[0].confidence, '未匹配');
+});
+
+test('section context prevents work fields from matching education mappings', () => {
+  const preview = buildAutofillPreviewFromScannedFields(
+    {
+      url: 'https://jobs.example.com/apply',
+      adapter: 'generic',
+      fields: [
+        {
+          fieldId: 'field-1',
+          elementType: 'input',
+          inputType: 'text',
+          label: '学校名称',
+          placeholder: '请输入学校名称',
+          section: '工作经历',
+          nearbyText: '工作经历 公司名称 职位名称 工作职责',
+        },
+      ],
+    },
+    mappings,
+  );
+
+  assert.equal(preview.fields[0].matchedLabel, '');
+  assert.equal(preview.fields[0].confidence, '未匹配');
 });
