@@ -127,6 +127,7 @@
     const forms = Array.from(document.querySelectorAll('form'));
     return scanControls(adapter, scope).map((element, index) => {
       const form = element.closest('form');
+      const context = fieldGroupContext(element, adapter);
       const elementType = element.tagName.toLowerCase();
       const inputType = (element.getAttribute('type') || elementType).toLowerCase();
       return {
@@ -148,6 +149,13 @@
         options: fieldOptions(element),
         selector: selectorFor(element),
         nearbyText: nearbyText(element).slice(0, 360),
+        section: context.section,
+        sectionType: context.sectionType,
+        sectionTitle: context.sectionTitle,
+        sectionSelector: context.sectionSelector,
+        itemIndex: context.itemIndex,
+        itemSelector: context.itemSelector,
+        itemText: context.itemText,
         pageUrl: location.href,
         adapterName: adapter.name || adapter.id || 'Generic Careers',
         formIndex: form ? forms.indexOf(form) : -1,
@@ -157,6 +165,149 @@
         isFile: inputType === 'file',
       };
     });
+  }
+
+  function fieldGroupContext(element, adapter = {}) {
+    const adapterContext = adapter.fieldGroupContext?.(element);
+    if (adapterContext) return adapterContext;
+
+    const section = nearestSection(element);
+    const sectionTitle = section?.title || '';
+    const sectionType = inferSectionType([sectionTitle, section?.text, sectionSnippets(element).join(' ')].filter(Boolean).join(' '));
+    const item = sectionType ? nearestSectionItem(element, section?.element || document.body, sectionType) : null;
+    return {
+      section: sectionTitle,
+      sectionType,
+      sectionTitle,
+      sectionSelector: section?.element ? selectorFor(section.element) : '',
+      itemIndex: item?.index ?? -1,
+      itemSelector: item?.element ? selectorFor(item.element) : '',
+      itemText: item?.text || '',
+    };
+  }
+
+  function nearestSection(element) {
+    const candidates = [];
+    let current = element.parentElement;
+    for (let depth = 0; current && current !== document.body && depth < 9; depth += 1) {
+      const title = directSectionTitle(current);
+      const aria = current.getAttribute('aria-label') || current.getAttribute('data-section-title') || '';
+      const text = compactText([title, aria, current.getAttribute('class') || '', current.id || ''].filter(Boolean).join(' '));
+      const type = inferSectionType(text);
+      if (type) candidates.push({ element: current, title: title || aria || readableSectionTitle(type), text, depth, score: title ? 3 : 1 });
+      current = current.parentElement;
+    }
+    if (candidates.length) {
+      return candidates.sort((a, b) => b.score - a.score || a.depth - b.depth)[0];
+    }
+
+    const heading = nearestPreviousHeading(element);
+    if (!heading) return null;
+    const container = sectionContainerForHeading(heading, element);
+    const title = compactText(heading.innerText || heading.textContent || '');
+    return { element: container || heading.parentElement || document.body, title, text: title, depth: 0, score: 1 };
+  }
+
+  function directSectionTitle(element) {
+    const direct = Array.from(element.children || []).find((child) =>
+      /^(H1|H2|H3|H4|LEGEND)$/i.test(child.tagName) ||
+      /title|heading|section/i.test(child.getAttribute('class') || '') ||
+      child.hasAttribute('data-section-title')
+    );
+    const text = compactText(direct?.innerText || direct?.textContent || '');
+    if (text && text.length <= 80) return text;
+    return '';
+  }
+
+  function nearestPreviousHeading(element) {
+    const headings = Array.from(document.querySelectorAll('h1,h2,h3,h4,legend,[data-section-title],[class*="title"],[class*="Title"]'))
+      .filter(isVisible)
+      .filter((node) => (node.compareDocumentPosition(element) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0)
+      .map((node) => ({ node, text: compactText(node.innerText || node.textContent || '') }))
+      .filter((item) => item.text && item.text.length <= 80 && inferSectionType(item.text));
+    return headings.at(-1)?.node || null;
+  }
+
+  function sectionContainerForHeading(heading, element) {
+    let current = heading.parentElement;
+    for (let depth = 0; current && current !== document.body && depth < 5; depth += 1) {
+      if (current.contains(element) && current.querySelectorAll('input,textarea,select').length >= 1) return current;
+      current = current.parentElement;
+    }
+    return heading.parentElement;
+  }
+
+  function nearestSectionItem(element, sectionElement, sectionType) {
+    const repeatable = ['education', 'internship', 'project', 'award'].includes(sectionType);
+    if (!repeatable) return { element: sectionElement, index: -1, text: '' };
+
+    const container = nearestItemContainer(element, sectionElement);
+    if (!container) return { element: sectionElement, index: 0, text: '' };
+    const items = sectionItems(sectionElement)
+      .filter((item) => item.querySelectorAll('input,textarea,select').length > 0);
+    const index = Math.max(0, items.indexOf(container));
+    return {
+      element: container,
+      index,
+      text: compactText(container.innerText || container.textContent || '').slice(0, 260),
+    };
+  }
+
+  function nearestItemContainer(element, sectionElement) {
+    const candidates = [];
+    let current = element.parentElement;
+    for (let depth = 0; current && current !== sectionElement && depth < 7; depth += 1) {
+      const controlCount = current.querySelectorAll('input,textarea,select').length;
+      const classText = `${current.className || ''} ${current.id || ''}`;
+      const hasItemMarker =
+        current.matches?.('[data-repeater-item],.repeater-item,fieldset') ||
+        /item|card|record|block|entry|experience|education|project|resume|form-list|ant-form-list/i.test(classText);
+      if (controlCount >= 2 && controlCount <= 20) {
+        candidates.push({ element: current, score: hasItemMarker ? 3 : 1, depth });
+      }
+      current = current.parentElement;
+    }
+    if (!candidates.length) return sectionElement;
+    return candidates.sort((a, b) => b.score - a.score || b.depth - a.depth)[0].element;
+  }
+
+  function sectionItems(sectionElement) {
+    const explicit = Array.from(sectionElement.querySelectorAll('[data-repeater-item],.repeater-item,.education-item,.experience-item,.project-item,.ant-form-list-item'))
+      .filter(isVisible);
+    if (explicit.length) return uniqueElements(explicit);
+
+    const controlsInSection = scanControls({}, sectionElement).filter((control) => !control.closest('button'));
+    const grouped = controlsInSection
+      .map((control) => nearestItemContainer(control, sectionElement))
+      .filter(Boolean);
+    const unique = uniqueElements(grouped);
+    return unique.length ? unique : [sectionElement];
+  }
+
+  function inferSectionType(text = '') {
+    const value = String(text || '');
+    if (/项目|project/i.test(value)) return 'project';
+    if (/实习|工作经历|工作经验|任职经历|公司名称|职位名称|internship|work experience|employment|experience/i.test(value)) return 'internship';
+    if (/教育|学历|学习经历|学校|院校|专业|education|school|university/i.test(value)) return 'education';
+    if (/获奖|奖项|荣誉|实践|校园经历|award|honou?r/i.test(value)) return 'award';
+    if (/技能|语言|英语|证书|skill|language|certificate/i.test(value)) return 'skills';
+    if (/个人信息|基础信息|联系方式|姓名|邮箱|手机|personal|contact|basic/i.test(value)) return 'personal';
+    return '';
+  }
+
+  function readableSectionTitle(sectionType = '') {
+    return {
+      personal: '个人信息',
+      education: '教育经历',
+      internship: '工作/实习经历',
+      project: '项目经历',
+      award: '实践荣誉',
+      skills: '技能',
+    }[sectionType] || '';
+  }
+
+  function uniqueElements(elements = []) {
+    return elements.filter((element, index) => elements.indexOf(element) === index);
   }
 
   function buildFieldId(element, index) {

@@ -119,3 +119,41 @@ test('groups results into matched, needs confirmation, and unmatched', () => {
   assert.equal(summary.needsConfirmation.length, 1);
   assert.equal(summary.unmatched.length, 1);
 });
+
+test('repeated section fields only match rows from the same item index', () => {
+  const result = matchScannedField(
+    {
+      fieldId: 'work-card-2-company',
+      elementType: 'input',
+      inputType: 'text',
+      label: '公司名称',
+      sectionType: 'internship',
+      section: '工作经历',
+      itemIndex: 1,
+      nearbyText: '工作经历 第 2 条 公司名称 职位名称 起止时间',
+    },
+    [
+      {
+        label: '实习经历1-公司名称',
+        sourceLabel: '实习经历1-公司名称',
+        value: '招商金科',
+        aliases: '公司名称 / Company',
+        group: '实习经历',
+        sectionType: 'internship',
+        itemIndex: 0,
+      },
+      {
+        label: '实习经历2-公司名称',
+        sourceLabel: '实习经历2-公司名称',
+        value: '中国联通',
+        aliases: '公司名称 / Company',
+        group: '实习经历',
+        sectionType: 'internship',
+        itemIndex: 1,
+      },
+    ]
+  );
+
+  assert.equal(result.canonicalField, '实习经历2-公司名称');
+  assert.equal(result.answer, '中国联通');
+});

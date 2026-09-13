@@ -204,6 +204,8 @@ function scoreMapping(scannedField, mapping) {
 }
 
 function mappingCompatible(scannedField, mapping) {
+  if (!sectionItemCompatible(scannedField, mapping)) return false;
+
   const scannedText = [
     scannedField.sectionType,
     scannedField.section,
@@ -221,11 +223,51 @@ function mappingCompatible(scannedField, mapping) {
   const mappedGroup = groupKind(mappingText);
   if (scannedGroup && mappedGroup && scannedGroup !== mappedGroup) return false;
 
-  const scannedFieldKind = fieldKind(scannedText);
+  const ownFieldText = [
+    scannedField.label,
+    scannedField.sourceLabel,
+    normalizePromptText(scannedField.placeholder || ''),
+    scannedField.name,
+    scannedField.id,
+  ]
+    .filter(Boolean)
+    .join(' ');
+  const scannedFieldKind = fieldKind(ownFieldText) || fieldKind(scannedField.nearbyText || '');
   const mappedFieldKind = fieldKind(mappingText);
   if (scannedFieldKind && mappedFieldKind && scannedFieldKind !== mappedFieldKind) return false;
 
   return true;
+}
+
+function sectionItemCompatible(scannedField = {}, mapping = {}) {
+  const scannedSection = canonicalSectionType(scannedField.sectionType || scannedField.section || scannedField.group || '');
+  const mappingSection = canonicalSectionType(mapping.sectionType || mapping.group || mapping.label || mapping.sourceLabel || '');
+  if (scannedSection && mappingSection && scannedSection !== mappingSection) return false;
+
+  const scannedIndex = normalizedItemIndex(scannedField.itemIndex);
+  const mappingIndex = normalizedItemIndex(mapping.itemIndex);
+  if (scannedSection && mappingSection && scannedSection === mappingSection && scannedIndex >= 0 && mappingIndex >= 0 && scannedIndex !== mappingIndex) {
+    return false;
+  }
+
+  return true;
+}
+
+function canonicalSectionType(text = '') {
+  const value = String(text || '');
+  if (/projectExperience/i.test(value)) return 'project';
+  if (/项目|project/i.test(value)) return 'project';
+  if (/internship|workExperience|work|experience|实习|工作经历|工作经验/i.test(value)) return 'internship';
+  if (/education|教育|学历|学校|院校|专业/i.test(value)) return 'education';
+  if (/award|honou?r|获奖|奖项|荣誉|实践|校园经历/i.test(value)) return 'award';
+  if (/skills?|language|技能|语言|英语|证书/i.test(value)) return 'skills';
+  if (/personal|contact|basic|个人信息|基础信息|联系方式|姓名|邮箱|手机/i.test(value)) return 'personal';
+  return '';
+}
+
+function normalizedItemIndex(value) {
+  const number = Number(value);
+  return Number.isInteger(number) ? number : -1;
 }
 
 function groupKind(text = '') {

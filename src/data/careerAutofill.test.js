@@ -34,6 +34,18 @@ const mappings = [
     value: '招商金科',
     aliases: '公司名称 / Company / 雇主',
     group: '实习经历',
+    sectionType: 'internship',
+    itemIndex: 0,
+  },
+  {
+    id: 'internship2Company',
+    label: '实习经历2-公司名称',
+    sourceLabel: '实习经历2-公司名称',
+    value: '中国联通',
+    aliases: '公司名称 / Company / 雇主',
+    group: '实习经历',
+    sectionType: 'internship',
+    itemIndex: 1,
   },
 ];
 
@@ -100,4 +112,29 @@ test('section context prevents work fields from matching education mappings', ()
 
   assert.equal(preview.fields[0].matchedLabel, '');
   assert.equal(preview.fields[0].confidence, '未匹配');
+});
+
+test('section item context keeps repeated work cards aligned by index', () => {
+  const preview = buildAutofillPreviewFromScannedFields(
+    {
+      url: 'https://jobs.example.com/apply',
+      adapter: 'generic',
+      fields: [
+        {
+          fieldId: 'work-card-2-company',
+          elementType: 'input',
+          inputType: 'text',
+          label: '公司名称',
+          sectionType: 'internship',
+          section: '工作经历',
+          itemIndex: 1,
+          itemText: '工作经历 第 2 条 公司名称 职位名称 起止时间',
+        },
+      ],
+    },
+    mappings,
+  );
+
+  assert.equal(preview.fields[0].matchedSourceLabel, '实习经历2-公司名称');
+  assert.equal(preview.fields[0].value, '中国联通');
 });
