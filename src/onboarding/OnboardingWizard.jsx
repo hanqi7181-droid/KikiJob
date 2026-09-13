@@ -144,6 +144,7 @@ export function OnboardingWizard({
       const payload = await uploadResume(file);
       const parsedProfile = payload.resume?.parsedProfile || null;
       const parsedProfileDraft = profileFromParsedResume(parsedProfile || {}, appProfile || {});
+      const parseHint = resumeParseHint(payload.resume?.parseDiagnostics);
       setDraft((current) => {
         const safeCurrent = sanitizeOnboardingDraft(current);
         return {
@@ -151,7 +152,7 @@ export function OnboardingWizard({
         resume: {
           ...safeCurrent.resume,
           uploadStatus: 'success',
-          error: '',
+          error: parseHint,
           parsedProfile,
           pendingProfile: parsedProfileDraft,
         },
@@ -177,6 +178,14 @@ export function OnboardingWizard({
       });
     }
   };
+
+  function resumeParseHint(diagnostics = {}) {
+    if (!diagnostics || typeof diagnostics !== 'object') return '';
+    if (!diagnostics.textLength) return '未从文件中提取到可用文本，扫描版 PDF 暂不支持 OCR。';
+    if (diagnostics.parseWarning === 'AI_RETURNED_EMPTY_FIELDS') return 'AI 解析结果较少，已用本地规则补充可识别字段，请继续确认。';
+    if (diagnostics.parser === 'local-fallback') return 'AI 解析未完成，已使用本地规则提取可识别字段。';
+    return '';
+  }
 
   const applyPendingProfile = () => {
     setDraft((current) => {

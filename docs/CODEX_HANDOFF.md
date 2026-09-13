@@ -41,6 +41,9 @@
 - 已优化 Chrome 插件的 MokaHR V2 重复经历添加：扩大“添加/新增/增加/+”按钮识别，支持“新增一条实习经历”等文案；点击添加时改为滚动到按钮并模拟 pointer/mouse/click 事件；等待动态新增区块时间从 3 秒放宽到 6 秒。
 - `/api/health` 已增加 `doubaoConfigured` 布尔值，不暴露密钥，只用于确认当前后端进程是否读到了 `ARK_API_KEY` 和 `DOUBAO_MODEL`。
 - 邮箱验证码登录已恢复轻量状态提示：验证码发送、验证失败、缺少验证码等信息会显示在登录按钮下方，但不恢复“会话状态”说明卡片。
+- 简历上传响应已增加 `parseDiagnostics`，包含 `parser`、`documentParser`、`documentFormat`、`parseWarning`、`doubaoConfigured`、`textLength` 和字段数量，方便判断正式版到底卡在 PDF 文本抽取、豆包配置、Zod 校验还是字段回填。
+- 如果 Doubao 返回合法但字段为空的 JSON，后端现在会保留 Doubao 结果链路，同时用本地规则补充可识别的邮箱、手机号、学校、经历等字段，并标记 `parseWarning: AI_RETURNED_EMPTY_FIELDS`。
+- 上传页会把解析诊断转换成轻量中文提示；AI 解析失败或字段较少不会阻止用户继续手动填写。
 - 没有修改上传页面、登录、数据库 schema 或无关 UI。
 - 没有把 Docling 作为默认依赖上线；没有新增 LangChain、RAG、Agent 框架。
 
@@ -100,6 +103,7 @@
 - 已新增后端测试覆盖标签推荐、岗位种子池和岗位入口池：`server/jobCrawler.test.js` mock 官网 HTML，验证大厂/互联网/AI/杭州偏好会返回带标签的推荐公司和岗位，并验证央国企/通信/广州可命中三大运营商方向种子岗位，牛客等零预算岗位搜索入口会在点击智能推荐后生成。
 - 插件重复经历测试已覆盖 3 条实习经历自动新增和“新增一条实习经历”按钮文案。
 - Doubao 本地自测命令 `npm run resume:parse:doubao` 已成功返回结构化 JSON；当前本地 `http://localhost:8788/api/health` 显示 `doubaoConfigured: True`。
+- 已新增测试覆盖：当 Doubao 被调用但返回空结构化字段时，后端会用本地规则补充可识别字段并返回解析诊断。
 
 ## 已知问题
 
@@ -108,6 +112,7 @@
 - 本地 Python 3.11 可用，但当前环境未安装 `docling`。因此 Docling 默认不启用。
 - 当前仓库没有 Dockerfile、requirements 或 docling-serve 部署配置；把 Docling 默认上线会明显增加部署复杂度。
 - 当前 Doubao 解析只在 `ARK_API_KEY` 和 `DOUBAO_MODEL` 都配置时启用；未配置时仍走原有本地规则解析。
+- 正式版若“调用了豆包但页面全是未识别”，优先检查上传接口返回的 `resume.parseDiagnostics`：`textLength=0` 多半是文档抽取失败；`parser=local-fallback` 多半是豆包调用或 Zod 校验失败；`parseWarning=AI_RETURNED_EMPTY_FIELDS` 表示豆包返回字段过少但本地规则已尝试兜底。
 - `npm run resume:parse:doubao` 只验证 Provider 和 Zod，不等于完整上传接口端到端验证。
 - 真实 PDF 的后端链路已跑通，但前端页面需要刷新到最新 Vite 热更新状态后再复测展示。
 - 公司官网池里的部分招聘站点由第三方招聘系统承载，页面结构和季节性校招地址可能变化；现有轻量爬取会跳过无法公开读取或需要登录/JS 渲染的岗位。

@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import test from 'node:test';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { MockLLMProvider } from './llmProvider.js';
-import { structuredResumeToParsedProfile } from './resumeParser.js';
+import { buildResumeParseDiagnostics, parseResumeFile, structuredResumeToParsedProfile } from './resumeParser.js';
 import { parseStructuredResume } from './structuredResumeParser.js';
 
 test('parses structured resume text through provider and Zod validation', async () => {
@@ -130,4 +133,55 @@ test('normalizes common Doubao JSON aliases before Zod validation', async () => 
   assert.equal(structuredResume.workExperience[0].position, '算法实习生');
   assert.equal(structuredResume.projects[0].projectName, '智能求职 Web 项目');
   assert.deepEqual(structuredResume.skills, ['Python', 'SQL']);
+});
+
+test('falls back to local extraction when Doubao returns empty structured fields', async () => {
+  const previousApiKey = process.env.ARK_API_KEY;
+  const previousModel = process.env.DOUBAO_MODEL;
+  const previousFetch = globalThis.fetch;
+  const tempDir = mkdtempSync(join(tmpdir(), 'auto-cv-resume-'));
+  const resumePath = join(tempDir, 'resume.txt');
+
+  process.env.ARK_API_KEY = 'test-key';
+  process.env.DOUBAO_MODEL = 'test-model';
+  globalThis.fetch = async () => ({
+    ok: true,
+    async json() {
+      return {
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                basicInfo: { name: null, phone: null, email: null, location: null },
+                education: [],
+                workExperience: [],
+                projects: [],
+                skills: [],
+              }),
+            },
+          },
+        ],
+      };
+    },
+  });
+
+  try {
+    writeFileSync(resumePath, '郑涵亓\n邮箱 name@example.com\n电话 13800138000\n香港城市大学\n商业人工智能', 'utf8');
+    const { rawText, parsedProfile } = await parseResumeFile(resumePath);
+    const diagnostics = buildResumeParseDiagnostics(parsedProfile, rawText);
+
+    assert.equal(parsedProfile.parser, 'doubao');
+    assert.equal(parsedProfile.parseWarning, 'AI_RETURNED_EMPTY_FIELDS');
+    assert.equal(parsedProfile.email, 'name@example.com');
+    assert.equal(parsedProfile.phone, '13800138000');
+    assert.equal(diagnostics.parseWarning, 'AI_RETURNED_EMPTY_FIELDS');
+    assert.equal(diagnostics.hasBasicInfo, true);
+  } finally {
+    if (previousApiKey === undefined) delete process.env.ARK_API_KEY;
+    else process.env.ARK_API_KEY = previousApiKey;
+    if (previousModel === undefined) delete process.env.DOUBAO_MODEL;
+    else process.env.DOUBAO_MODEL = previousModel;
+    globalThis.fetch = previousFetch;
+    rmSync(tempDir, { recursive: true, force: true });
+  }
 });

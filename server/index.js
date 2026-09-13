@@ -5,7 +5,7 @@ import { getRepository } from './repositories/index.js';
 import { normalizeImportedJob } from './jobImporter.js';
 import { crawlRecommendedJobs } from './jobCrawler.js';
 import { runBrowserAutofill } from './browserAutofill.js';
-import { parseProjectResume, saveUploadedResumeFromMultipart } from './resumeParser.js';
+import { buildResumeParseDiagnostics, parseProjectResume, saveUploadedResumeFromMultipart } from './resumeParser.js';
 import { createRateLimiter } from './rateLimit.js';
 
 const port = Number(process.env.PORT || 8787);
@@ -219,6 +219,7 @@ const server = http.createServer(async (request, response) => {
           ...resume,
           parsedProfile: parsed.parsedProfile,
           textLength: parsed.rawText.length,
+          parseDiagnostics: buildResumeParseDiagnostics(parsed.parsedProfile, parsed.rawText),
         },
         formMappings,
       });
@@ -241,6 +242,7 @@ const server = http.createServer(async (request, response) => {
           ...resume,
           parsedProfile: parsed.parsedProfile,
           textLength: parsed.rawText.length,
+          parseDiagnostics: buildResumeParseDiagnostics(parsed.parsedProfile, parsed.rawText),
         },
         formMappings,
       });

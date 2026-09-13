@@ -66,7 +66,12 @@ async function parseResumeText(rawText) {
       projectCount: parsedProfile.projectExperienceDetails.length,
       skillsCount: parsedProfile.skills.length,
     });
-    return parsedProfile;
+    const localFallback = extractProfile(rawText);
+    const mergedProfile = mergeParsedProfiles(parsedProfile, localFallback);
+    if (!hasParsedProfileSignal(parsedProfile) && hasParsedProfileSignal(localFallback)) {
+      mergedProfile.parseWarning = 'AI_RETURNED_EMPTY_FIELDS';
+    }
+    return mergedProfile;
   } catch (error) {
     console.warn(`[resume-parser] Doubao structured parsing failed: ${error.message}`);
     return {
@@ -130,6 +135,58 @@ export function structuredResumeToParsedProfile(structuredResume = {}, rawText =
     summary: normalized.slice(0, 1600),
     structuredResume,
     parser: 'doubao',
+  };
+}
+
+function mergeParsedProfiles(primary, fallback) {
+  return {
+    ...primary,
+    name: primary.name || fallback.name || '',
+    email: primary.email || fallback.email || '',
+    phone: primary.phone || fallback.phone || '',
+    location: primary.location || fallback.location || '',
+    education: primary.education?.length ? primary.education : fallback.education || [],
+    educationDetails: primary.educationDetails?.length ? primary.educationDetails : fallback.educationDetails || [],
+    workExperienceDetails: primary.workExperienceDetails?.length ? primary.workExperienceDetails : fallback.workExperienceDetails || [],
+    projectExperienceDetails: primary.projectExperienceDetails?.length ? primary.projectExperienceDetails : fallback.projectExperienceDetails || [],
+    practiceDetails: primary.practiceDetails?.length ? primary.practiceDetails : fallback.practiceDetails || [],
+    skills: primary.skills?.length ? primary.skills : fallback.skills || [],
+    skillDetails: Object.keys(primary.skillDetails || {}).length ? primary.skillDetails : fallback.skillDetails || {},
+    experiences: primary.experiences?.length ? primary.experiences : fallback.experiences || [],
+    languages: primary.languages?.length ? primary.languages : fallback.languages || [],
+    jobIntention: primary.jobIntention || fallback.jobIntention || '',
+    parser: primary.parser || 'doubao',
+  };
+}
+
+function hasParsedProfileSignal(profile = {}) {
+  return Boolean(
+    profile.name ||
+      profile.email ||
+      profile.phone ||
+      profile.location ||
+      profile.educationDetails?.length ||
+      profile.workExperienceDetails?.length ||
+      profile.projectExperienceDetails?.length ||
+      profile.skills?.length
+  );
+}
+
+export function buildResumeParseDiagnostics(parsedProfile = {}, rawText = '') {
+  return {
+    parser: parsedProfile.parser || '',
+    documentParser: parsedProfile.documentParser || '',
+    documentFormat: parsedProfile.documentFormat || '',
+    parseWarning: parsedProfile.parseWarning || '',
+    doubaoConfigured: isDoubaoConfigured(),
+    textLength: String(rawText || '').length,
+    fieldCounts: {
+      education: parsedProfile.educationDetails?.length || 0,
+      work: parsedProfile.workExperienceDetails?.length || 0,
+      project: parsedProfile.projectExperienceDetails?.length || 0,
+      skills: parsedProfile.skills?.length || 0,
+    },
+    hasBasicInfo: Boolean(parsedProfile.name || parsedProfile.email || parsedProfile.phone),
   };
 }
 
