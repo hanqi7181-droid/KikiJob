@@ -1,5 +1,6 @@
 import http from 'node:http';
 import { URL } from 'node:url';
+import { createClient } from '@supabase/supabase-js';
 import './env.js';
 import { getRepository } from './repositories/index.js';
 import { normalizeImportedJob } from './jobImporter.js';
@@ -14,6 +15,7 @@ const corsOrigin = normalizeCorsOrigin(process.env.CORS_ORIGIN || process.env.FR
 const repo = getRepository();
 const authRateLimit = createRateLimiter({ max: Number(process.env.AUTH_RATE_LIMIT_MAX || 10), windowMs: 60_000 });
 const uploadRateLimit = createRateLimiter({ max: Number(process.env.UPLOAD_RATE_LIMIT_MAX || 12), windowMs: 60_000 });
+const supabaseAuthClient = createSupabaseAuthClient();
 
 repo.initDatabase();
 
@@ -303,7 +305,34 @@ function sendJson(response, statusCode, payload) {
 
 async function getCurrentUser(request) {
   const token = readBearerToken(request);
-  return token ? repo.getUserFromToken(token) : null;
+  if (!token) return null;
+  const localUser = await repo.getUserFromToken(token);
+  if (localUser) return localUser;
+  return getSupabaseUserFromToken(token);
+}
+
+async function getSupabaseUserFromToken(token) {
+  if (!supabaseAuthClient) return null;
+  const { data, error } = await supabaseAuthClient.auth.getUser(token);
+  if (error || !data?.user) return null;
+  return {
+    id: defaultUserId,
+    email: data.user.email || '',
+    supabaseUserId: data.user.id,
+    provider: data.user.app_metadata?.provider || '',
+  };
+}
+
+function createSupabaseAuthClient() {
+  const url = process.env.SUPABASE_URL;
+  const anonKey = process.env.SUPABASE_ANON_KEY;
+  if (!url || !anonKey) return null;
+  return createClient(url, anonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
 }
 
 function readBearerToken(request) {

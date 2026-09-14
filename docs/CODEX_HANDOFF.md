@@ -4,6 +4,8 @@
 
 - 前端是 React/Vite，主要入口在 `src/main.jsx`，API 客户端在 `src/api/client.js`。
 - 后端是 Node.js 原生 HTTP 服务，入口在 `server/index.js`。
+- 登录认证已接入 Supabase Auth：前端使用 `src/lib/supabase.js` 统一创建 Supabase client，登录状态由 Supabase session 管理。
+- Railway 后端保留现有业务 API；生产环境下可识别 Supabase access token，并先映射到现有默认用户数据以保持旧流程可运行，真正按 Supabase `user.id` 做数据隔离仍是后续迁移。
 - 简历上传接口是 `POST /api/resumes/upload`，由 `server/resumeParser.js` 处理 multipart、文件保存和简历解析。
 - 文档读取已拆到 `server/documentParser.js`：普通 PDF 先用 Node 依赖 `pdf-parse` 抽取文本，再保留现有 `pdfplumber` 作为 fallback；Docling 作为独立可选 parser，通过环境变量启用。
 - 简历记录仍保存到现有 `resumes` 表，`rawText` 和 `parsedProfile` 沿用现有字段。
@@ -40,7 +42,7 @@
 - `normalizeImportedJob` 和 PostgreSQL `addImportedJob` 已支持写入 `publishedAt`、`deadline` 到现有 `jobs.published_at`、`jobs.deadline` 字段。
 - 已优化 Chrome 插件的 MokaHR V2 重复经历添加：扩大“添加/新增/增加/+”按钮识别，支持“新增一条实习经历”等文案；点击添加时改为滚动到按钮并模拟 pointer/mouse/click 事件；等待动态新增区块时间从 3 秒放宽到 6 秒。
 - `/api/health` 已增加 `doubaoConfigured` 布尔值，不暴露密钥，只用于确认当前后端进程是否读到了 `ARK_API_KEY` 和 `DOUBAO_MODEL`。
-- 邮箱验证码登录已恢复轻量状态提示：验证码发送、验证失败、缺少验证码等信息会显示在登录按钮下方，但不恢复“会话状态”说明卡片。
+- 旧邮箱验证码登录入口已被 Supabase Auth 邮箱密码注册/登录替换；登录失败、短密码、邮箱已注册、OAuth 失败等信息会显示在登录按钮下方。
 - 简历上传响应已增加 `parseDiagnostics`，包含 `parser`、`documentParser`、`documentFormat`、`parseWarning`、`doubaoConfigured`、`textLength` 和字段数量，方便判断正式版到底卡在 PDF 文本抽取、豆包配置、Zod 校验还是字段回填。
 - 如果 Doubao 返回合法但字段为空的 JSON，后端现在会保留 Doubao 结果链路，同时用本地规则补充可识别的邮箱、手机号、学校、经历等字段，并标记 `parseWarning: AI_RETURNED_EMPTY_FIELDS`。
 - 上传页会把解析诊断转换成轻量中文提示；AI 解析失败或字段较少不会阻止用户继续手动填写。
@@ -56,6 +58,11 @@
 - 辅助投递第 5 步已修复：扩展填充包现在直接由扫描预览生成，不再依赖 `autofillConfirmed` 才生成脚本，避免进入第 5 步时填充包为空或按钮失效。登录引导也不再用当前资料邮箱预填登录账号，避免登录态异常时显示本地邮箱。
 - 辅助投递第 5 步恢复逻辑已加固：扫描预览会随 assist session 写入本地恢复状态；如果旧 session 记在第 5 步但扫描预览缺失，会自动退回第 4 步并提示重新扫描，避免页面看起来“打不开”。
 - 已新增新用户主流程说明文档：`docs/KIKIJOB_USER_FLOW.md`，可用于录屏讲解和冒烟测试。
+- 已接入 Supabase Auth 第一版：邮箱密码注册/登录、Google 登录、GitHub 登录、退出登录、刷新保持登录状态。
+- 登录页已移除自建邮箱验证码入口；当前阶段不再使用 Resend 发送 Auth 邮件。
+- 前端启动时会先 `supabase.auth.getSession()`，并监听 `onAuthStateChange`；session 未读取完成时显示“正在读取登录状态...”，避免页面闪跳。
+- 未登录时停留在登录引导页，登录步骤不能再关闭绕过；登录成功后进入现有主系统。
+- 前端会把 Supabase access token 放进现有 Bearer 请求头槽位，后端用 Supabase anon key 验证 token 后继续走现有接口。
 - 已新增独立后端公司池 `server/companyPool.js`，把 27 届校招表第一批可读内容结构化为公司数据：公司类型、行业、业务线、岗位方向、城市、双非/本科/女性友好标签、适合人群和入职体验摘要。
 - 当前公司池共 135 家，无重复；其中 133 家已有明确招聘/校招/官网承载入口，2 家因截图未含 URL 且暂未核到稳定入口，仍标为 `official-search`，在前端显示为“查找官网入口”，不伪装成已核验官网投递。
 - 已完成第一批官网入口核验替换：麒麟信安、汉得信息、紫光同芯、星宸科技、芯原股份、达发科技、中信戴卡、英维克、零跑汽车、中国航发黎明、中广核集团、四方股份、伟创电气、徐工、中建八局、中远海运、中铁广州局城建公司、中铁五局、中铁二局、乐动机器人、TP-Link联洲、乐有家、飞博共创、宝宝巴士、戴尔科技、泛林集团等。
@@ -78,6 +85,8 @@
 - `server/resumeParser.js`
 - `server/jobCrawler.js`
 - `server/companyPool.js`
+- `server/email.js`
+- `src/lib/supabase.js`
 - `server/jobCrawler.test.js`
 - `server/scripts/extract_docling_text.py`
 - `server/documentParser.test.js`
@@ -111,10 +120,19 @@
 - `DOCLING_TIMEOUT_MS`: 可选。Docling HTTP 超时，默认 45000。
 - `DOCUMENT_PARSE_TIMEOUT_MS`: 可选。本地 Python 文档解析超时，默认 45000。
 - `DATABASE_PROVIDER`, `DATABASE_URL`: 数据库选择和连接配置。
+- `VITE_SUPABASE_URL`: Vercel 前端可公开的 Supabase Project URL。
+- `VITE_SUPABASE_ANON_KEY`: Vercel 前端可公开的 Supabase anon/publishable key。
+- `SUPABASE_URL`: Railway 后端使用的 Supabase Project URL。
+- `SUPABASE_ANON_KEY`: Railway 后端用于验证 Supabase access token。
+- `SUPABASE_SERVICE_ROLE_KEY`: 仅 Railway 后端使用，继续用于 Supabase Storage，绝不能放进 `VITE_` 或提交到 GitHub。
 
 ## 当前待办
 
 - 重新刷新页面后上传一份 PDF，验证前端展示是否按字段级合并显示：已有邮箱不覆盖，姓名/学校/专业/经历等空字段自动填入。
+- 在 Supabase Dashboard 关闭 Confirm Email，打开 Allow new users to sign up，并配置 Google/GitHub Provider。
+- 在 Vercel 添加 `VITE_SUPABASE_URL` 和 `VITE_SUPABASE_ANON_KEY` 后重新部署前端。
+- 在 Railway 保留 `SUPABASE_URL`、`SUPABASE_ANON_KEY`、`SUPABASE_SERVICE_ROLE_KEY`，删除仅用于 Resend Auth 邮件的变量。
+- 后续真正实现用户数据隔离时，需要把 `/api/bootstrap`、`/api/profile`、`/api/resumes/*`、`/api/applications/*`、`/api/form-mappings`、`/api/jobs/import-recommendations`、`/api/autofill/run` 从默认用户映射迁移到 Supabase `user.id`。
 - 如果决定试运行 Docling，优先单独部署 docling-serve 并配置 `DOCLING_SERVER_URL`；确认稳定后再考虑 `DOCUMENT_PARSER=docling-python`。
 - 根据真实简历样本微调 prompt 或 schema 字段，但仍保持“只提取原文，不总结、不润色、不推断”。
 - 评估是否要把 PDF 文本抽取从当前 Python/pdfplumber 脚本换成 Node 方案；当前阶段未做。
@@ -139,6 +157,7 @@
 - 2026-09-09 本地页面上传曾出现 `PDF text extraction failed`，原因是后端默认使用 `python3`，Windows 环境可能没有该命令；已加入 fallback，但仍建议明确配置 `PYTHON_PATH`。
 - 本地 Python 3.11 可用，但当前环境未安装 `docling`。因此 Docling 默认不启用。
 - 当前仓库没有 Dockerfile、requirements 或 docling-serve 部署配置；把 Docling 默认上线会明显增加部署复杂度。
+- 当前 Supabase Auth 已能获取 `user.id` / `user.email`，但后端业务数据仍暂时复用旧的默认用户 id；这只是兼容旧 schema 的过渡方案，不是真正多用户隔离。
 - 当前 Doubao 解析只在 `ARK_API_KEY` 和 `DOUBAO_MODEL` 都配置时启用；未配置时仍走原有本地规则解析。
 - 正式版若“调用了豆包但页面全是未识别”，优先检查上传接口返回的 `resume.parseDiagnostics`：`textLength=0` 多半是文档抽取失败；`parser=local-fallback` 多半是豆包调用或 Zod 校验失败；`parseWarning=AI_RETURNED_EMPTY_FIELDS` 表示豆包返回字段过少但本地规则已尝试兜底。
 - `npm run resume:parse:doubao` 只验证 Provider 和 Zod，不等于完整上传接口端到端验证。
@@ -149,6 +168,7 @@
 ## 下一步
 
 - 启动后端和前端，在浏览器上传真实 PDF 简历，检查资料页或 onboarding 是否自动填入姓名、邮箱、手机号、教育经历、工作经历、项目经历和技能。
+- 先在本地和 Vercel 分别测试邮箱注册、邮箱登录、Google 登录、GitHub 登录、刷新保持登录、退出登录、未登录访问受保护页面。
 - 如果上传端到端通过，再准备提交；如果失败，优先看后端日志里的 PDF 文本抽取或 `resume_parse_failed`。
 - 点击智能推荐，用不同偏好组合验证官网池筛选：`央国企`、`大厂`、`外企`、`银行`、`互联网`、`女性友好`；确认推荐公司只在点击后出现。
 - 优先核验并替换高频推荐公司的官方校招/招聘入口：表格里的芯片半导体、智能制造、机器人、新能源、建筑央企、量化私募等。

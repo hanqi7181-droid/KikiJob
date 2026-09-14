@@ -33,12 +33,8 @@ import {
   clearProfileData,
   deleteResume,
   fetchBootstrap,
-  fetchAuthProviders,
   fetchResumes,
   importRecommendedJobs,
-  loginWithPassword,
-  logout as logoutFromApi,
-  requestEmailCode,
   runAutofill,
   saveApplicationStatus,
   saveFormMappings,
@@ -46,7 +42,6 @@ import {
   saveProfile as saveProfileToApi,
   setDefaultResume,
   uploadResume,
-  verifyEmailCode,
 } from './api/client.js';
 import { buildApplicationPacket } from './data/applicationPacket.js';
 import { buildAutofillPreview, buildAutofillPreviewFromScannedFields, buildAutofillScript } from './data/careerAutofill.js';
@@ -54,6 +49,7 @@ import { applicationStatuses, initialProfile } from './data/demoData.js';
 import { evaluateJobMatch } from './data/matching.js';
 import { buildStandardFormMappings, normalizeProfileData } from './data/standardFormMappings.js';
 import { OnboardingWizard } from './onboarding/OnboardingWizard.jsx';
+import { isSupabaseConfigured, supabase } from './lib/supabase.js';
 import {
   defaultOnboardingState,
   readOnboardingCompleted,
@@ -123,6 +119,18 @@ function createEmptyClientProfile(email = '') {
   };
 }
 
+function toClientAuthUser(user = {}) {
+  const metadata = user.user_metadata || {};
+  return {
+    id: user.id,
+    email: user.email || '',
+    name: metadata.full_name || metadata.name || metadata.user_name || user.email || '',
+    avatarUrl: metadata.avatar_url || '',
+    provider: user.app_metadata?.provider || '',
+    user_metadata: metadata,
+  };
+}
+
 function App() {
   const [profile, setProfile] = useState(initialProfile);
   const [jobs, setJobs] = useState([]);
@@ -139,7 +147,8 @@ function App() {
   const [autofillRunResult, setAutofillRunResult] = useState(null);
   const [mappingSaveState, setMappingSaveState] = useState('');
   const [apiState, setApiState] = useState('连接后端中');
-  const [authProviders, setAuthProviders] = useState({ password: true, emailCode: true });
+  const [authSession, setAuthSession] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [authUser, setAuthUser] = useState(null);
   const [recommendImportState, setRecommendImportState] = useState('');
   const [recommendedCompanies, setRecommendedCompanies] = useState([]);
@@ -148,6 +157,72 @@ function App() {
   const hasBootstrapped = useRef(false);
 
   useEffect(() => {
+    let isMounted = true;
+    if (!isSupabaseConfigured || !supabase) {
+      setAuthLoading(false);
+      setAuthUser(null);
+      setOnboardingCompleted(false);
+      setApiState('请先配置 Supabase Auth 环境变量');
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    const applySession = (session) => {
+      if (!isMounted) return;
+      setAuthSession(session || null);
+      saveAuthToken(session?.access_token || '');
+      if (session?.user) {
+        setAuthUser(toClientAuthUser(session.user));
+        saveOnboardingCompleted(true);
+        setOnboardingCompleted(true);
+      } else {
+        setAuthUser(null);
+        saveAuthToken('');
+        saveOnboardingCompleted(false);
+        saveOnboardingStep(0);
+        setOnboardingCompleted(false);
+      }
+    };
+
+    supabase.auth.getSession()
+      .then(({ data }) => applySession(data?.session || null))
+      .catch(() => {
+        if (!isMounted) return;
+        setAuthUser(null);
+        setAuthSession(null);
+        saveAuthToken('');
+        setOnboardingCompleted(false);
+      })
+      .finally(() => {
+        if (isMounted) setAuthLoading(false);
+      });
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      applySession(session || null);
+    });
+
+    return () => {
+      isMounted = false;
+      listener?.subscription?.unsubscribe?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (authLoading || !authSession) {
+      hasBootstrapped.current = false;
+      if (!authSession) {
+        setProfile(createEmptyClientProfile());
+        setJobs([]);
+        setStatusMap({});
+        setApplicationDetails({});
+        setCustomMappings(null);
+        setParsedResume(null);
+        setResumeVersions([]);
+      }
+      return undefined;
+    }
+
     let isMounted = true;
 
     fetchBootstrap()
@@ -160,7 +235,8 @@ function App() {
         setCustomMappings(payload.formMappings?.length ? payload.formMappings : null);
         setParsedResume(payload.latestResume?.parsedProfile || null);
         setResumeVersions(payload.resumes || (payload.latestResume ? [payload.latestResume] : []));
-        setAuthUser(payload.user || null);
+        if (authSession?.user) setAuthUser(toClientAuthUser(authSession.user));
+        else setAuthUser(payload.user || null);
         setApiState(connectedText);
       })
       .catch((error) => {
@@ -183,13 +259,7 @@ function App() {
     return () => {
       isMounted = false;
     };
-  }, []);
-
-  useEffect(() => {
-    fetchAuthProviders()
-      .then((payload) => setAuthProviders(payload.providers || authProviders))
-      .catch(() => {});
-  }, []);
+  }, [authLoading, authSession]);
 
   useEffect(() => {
     const syncRoute = () => {
@@ -507,8 +577,51 @@ function App() {
       .catch((error) => setRecommendImportState(error.message || '智能推荐抓取失败，请稍后重试。'));
   };
 
+  const handleSupabasePasswordLogin = async (email, password) => {
+    if (!supabase) throw new Error('Supabase Auth 未配置，请先设置 VITE_SUPABASE_URL 和 VITE_SUPABASE_ANON_KEY。');
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    if (data?.session?.access_token) saveAuthToken(data.session.access_token);
+    if (!data?.user) throw new Error('登录失败，请稍后重试。');
+    const nextUser = toClientAuthUser(data.user);
+    setAuthUser(nextUser);
+    setAuthSession(data.session || null);
+    saveOnboardingCompleted(true);
+    setOnboardingCompleted(true);
+    return { user: nextUser, session: data.session };
+  };
+
+  const handleSupabasePasswordRegister = async (email, password) => {
+    if (!supabase) throw new Error('Supabase Auth 未配置，请先设置 VITE_SUPABASE_URL 和 VITE_SUPABASE_ANON_KEY。');
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    if (error) throw error;
+    if (data?.session?.access_token) saveAuthToken(data.session.access_token);
+    if (data?.user && data?.session) {
+      const nextUser = toClientAuthUser(data.user);
+      setAuthUser(nextUser);
+      setAuthSession(data.session);
+      saveOnboardingCompleted(true);
+      setOnboardingCompleted(true);
+      return { user: nextUser, session: data.session };
+    }
+    return handleSupabasePasswordLogin(email, password);
+  };
+
+  const handleSupabaseOAuthLogin = async (provider) => {
+    if (!supabase) throw new Error('Supabase Auth 未配置，请先设置 VITE_SUPABASE_URL 和 VITE_SUPABASE_ANON_KEY。');
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: window.location.origin,
+      },
+    });
+    if (error) throw error;
+  };
+
   const handleLogout = async () => {
-    await logoutFromApi().catch(() => saveAuthToken(''));
+    if (supabase) await supabase.auth.signOut().catch(() => {});
+    saveAuthToken('');
+    setAuthSession(null);
     setAuthUser(null);
     setProfile(createEmptyClientProfile());
     setParsedResume(null);
@@ -534,6 +647,19 @@ function App() {
 
   const activeRoute = primaryRoutes.find((route) => route.id === activeTab) || primaryRoutes[0];
   const isHomeRoute = activeTab === 'recommend';
+
+  if (authLoading) {
+    return (
+      <main className="app-shell home-shell">
+        <section className="auth-loading-shell" role="status" aria-live="polite">
+          <div className="login-template-card">
+            <p className="eyebrow">KikiJob</p>
+            <h3>正在读取登录状态...</h3>
+          </div>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className={`app-shell ${isHomeRoute ? 'home-shell' : ''}`}>
@@ -713,28 +839,20 @@ function App() {
           key={authUser?.id || 'guest'}
           appProfile={profile}
           authUser={authUser}
-          loginWithPassword={loginWithPassword}
+          loginWithPassword={handleSupabasePasswordLogin}
           parsedResume={parsedResume}
-          requestEmailCode={requestEmailCode}
+          registerWithPassword={handleSupabasePasswordRegister}
           saveProfile={saveProfileToApi}
+          signInWithOAuth={handleSupabaseOAuthLogin}
           uploadResume={uploadResume}
-          verifyEmailCode={verifyEmailCode}
           onAuthChanged={(payload) => {
             setApiState(connectedText);
-            fetchBootstrap()
-              .then((nextPayload) => {
-                setProfile(nextPayload.profile || createEmptyClientProfile());
-                setJobs(nextPayload.jobs || []);
-                setStatusMap(nextPayload.applications || {});
-                setApplicationDetails(nextPayload.applicationDetails || {});
-                setCustomMappings(nextPayload.formMappings?.length ? nextPayload.formMappings : null);
-                setParsedResume(nextPayload.latestResume?.parsedProfile || null);
-                setResumeVersions(nextPayload.resumes || (nextPayload.latestResume ? [nextPayload.latestResume] : []));
-                setAuthUser(nextPayload.user || payload?.user || null);
-                saveOnboardingDraft(defaultOnboardingState);
-                saveOnboardingStep(1);
-              })
-              .catch(() => {});
+            if (payload?.session?.access_token) saveAuthToken(payload.session.access_token);
+            if (payload?.user) setAuthUser(payload.user);
+            saveOnboardingDraft(defaultOnboardingState);
+            saveOnboardingStep(0);
+            saveOnboardingCompleted(true);
+            setOnboardingCompleted(true);
           }}
           onProfileSaved={({ formMappings: nextMappings, parsedResume: nextParsedResume, profile: nextProfile, resumeName }) => {
             if (nextParsedResume) setParsedResume(nextParsedResume);

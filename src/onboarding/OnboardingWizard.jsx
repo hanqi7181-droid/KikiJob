@@ -26,10 +26,10 @@ export function OnboardingWizard({
   onComplete,
   onProfileSaved,
   parsedResume,
-  requestEmailCode,
+  registerWithPassword,
   saveProfile,
+  signInWithOAuth,
   uploadResume,
-  verifyEmailCode,
 }) {
   const [draft, setDraft] = useState(() => hydrateOnboardingDraft(readOnboardingDraft(), appProfile, parsedResume));
   const [stepIndex, setStepIndex] = useState(() => readOnboardingStep(onboardingSteps.length - 1));
@@ -311,9 +311,11 @@ export function OnboardingWizard({
               <p className="eyebrow">Step {stepIndex + 1} of {onboardingSteps.length}</p>
               <h2 id={titleId}>{currentStep.title}</h2>
             </div>
-            <button className="icon-button" type="button" onClick={saveAndClose} aria-label="保存草稿并关闭引导">
-              <X size={20} />
-            </button>
+            {currentStep.id !== 'login' && (
+              <button className="icon-button" type="button" onClick={saveAndClose} aria-label="保存草稿并关闭引导">
+                <X size={20} />
+              </button>
+            )}
             <div className="onboarding-progress" aria-label={`引导进度 ${progress}%`}>
               <span style={{ width: `${progress}%` }} />
             </div>
@@ -339,10 +341,10 @@ export function OnboardingWizard({
               loginWithPassword={loginWithPassword}
               onAuthChanged={onAuthChanged}
               onStepComplete={() => setStepIndex((current) => Math.max(current, 1))}
-              requestEmailCode={requestEmailCode}
+              registerWithPassword={registerWithPassword}
               setField={setField}
               setProfileCollection={setProfileCollection}
-              verifyEmailCode={verifyEmailCode}
+              signInWithOAuth={signInWithOAuth}
               applyPendingProfile={applyPendingProfile}
               goToStep={(targetStepId) => {
                 const targetIndex = onboardingSteps.findIndex((step) => step.id === targetStepId);

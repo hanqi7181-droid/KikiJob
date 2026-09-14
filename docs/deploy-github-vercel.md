@@ -68,13 +68,12 @@ SUPABASE_URL
 SUPABASE_ANON_KEY
 SUPABASE_SERVICE_ROLE_KEY
 JWT_SECRET
-EMAIL_PROVIDER_API_KEY
 AI_API_KEY
 FRONTEND_URL
 CORS_ORIGIN
 ```
 
-Only expose `VITE_API_BASE_URL` to the frontend. Do not put `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL`, `JWT_SECRET`, or AI provider keys in any `VITE_*` variable.
+Expose only `VITE_API_BASE_URL`, `VITE_SUPABASE_URL`, and `VITE_SUPABASE_ANON_KEY` to the frontend. Do not put `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL`, `JWT_SECRET`, or AI provider keys in any `VITE_*` variable.
 
 ## Chrome Extension Backend URL
 

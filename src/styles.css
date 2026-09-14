@@ -7381,6 +7381,56 @@ body,
   transform: translateY(0);
 }
 
+.login-password-actions,
+.login-oauth-actions {
+  display: grid;
+  gap: 12px;
+}
+
+.login-password-actions {
+  grid-template-columns: 1fr 1fr;
+}
+
+.login-template-card .secondary-action {
+  min-height: 54px;
+  border-radius: 20px;
+  border-color: rgba(95, 127, 174, 0.24);
+  background: rgba(255, 255, 255, 0.84);
+  color: #351019;
+  box-shadow: 0 14px 18px -18px rgba(95, 127, 174, 0.7);
+  font-weight: 900;
+}
+
+.login-template-card .secondary-action:hover {
+  border-color: rgba(26, 165, 111, 0.36);
+  background: rgba(241, 252, 247, 0.92);
+  transform: translateY(-1px);
+}
+
+.login-oauth-actions .secondary-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.login-divider {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 12px;
+  align-items: center;
+  color: #8b98aa;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.login-divider::before,
+.login-divider::after {
+  content: "";
+  height: 1px;
+  background: rgba(95, 127, 174, 0.2);
+}
+
 .login-action-status {
   margin: 8px 0 0;
   color: #5e6d84;
@@ -7416,6 +7466,13 @@ body,
   accent-color: #5f7fae;
 }
 
+.auth-loading-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
 @media (max-width: 720px) {
   .login-template-card {
     border-radius: 26px;
@@ -7423,7 +7480,8 @@ body,
   }
 
   .login-mode-toggle,
-  .sms-login-row {
+  .sms-login-row,
+  .login-password-actions {
     grid-template-columns: 1fr;
   }
 }

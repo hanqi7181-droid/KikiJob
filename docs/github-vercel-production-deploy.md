@@ -105,11 +105,9 @@ CORS_ORIGIN=https://YOUR_VERCEL_DOMAIN
 DATABASE_PROVIDER=postgres
 DATABASE_URL=
 SUPABASE_URL=
+SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 SUPABASE_STORAGE_BUCKET=resumes
-EMAIL_PROVIDER=resend
-EMAIL_FROM=
-EMAIL_PROVIDER_API_KEY=
 AUTH_RATE_LIMIT_MAX=10
 UPLOAD_RATE_LIMIT_MAX=12
 RATE_LIMIT_WINDOW_MS=60000
@@ -178,7 +176,7 @@ For production release, package and publish it separately through Chrome Web Sto
 ## 8. Current Production Gaps
 
 - Historical resume files from local `uploads/` still need a one-time Supabase Storage migration.
-- Production email delivery requires Resend domain/API key configuration.
-- Phone OTP and OAuth are intentionally not enabled.
+- Supabase Auth now handles email/password, Google, and GitHub login; configure providers in Supabase Dashboard before public launch.
+- Phone OTP is intentionally not enabled.
 - Exposed Supabase keys/passwords should be rotated before public launch.
 - Backend should be deployed before setting Vercel `VITE_API_BASE_URL`.

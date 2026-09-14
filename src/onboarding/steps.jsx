@@ -122,15 +122,12 @@ function LoginStep({
   errors,
   loginWithPassword,
   onAuthChanged,
-  onStepComplete,
-  requestEmailCode,
+  registerWithPassword,
   setField,
-  verifyEmailCode,
+  signInWithOAuth,
 }) {
   const login = draft?.login || {};
-  const [mode, setMode] = useState('password');
   const [password, setPassword] = useState('');
-  const [emailCode, setEmailCode] = useState('');
   const [, setStatus] = useState(authUser ? '已登录，后续数据会保存到当前账号。' : '');
   const [pendingAction, setPendingAction] = useState('');
 
@@ -141,56 +138,56 @@ function LoginStep({
     setField('login', 'sessionStatus', message, { touched: false });
   };
 
-  const handlePasswordLogin = async () => {
-    if (!loginWithPassword) return setLoginStatus('后端登录接口未启动。');
+  const ensureCanSubmit = () => {
     if (!login.acceptedTerms) return setLoginStatus('请先勾选同意服务条款和隐私说明。');
     if (!account) return setLoginStatus('请先输入邮箱。');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(account)) return setLoginStatus('请输入有效邮箱。');
     if (!password) return setLoginStatus('请先输入密码。');
+    if (password.length < 6) return setLoginStatus('密码至少需要 6 位。');
+    return true;
+  };
+
+  const handlePasswordLogin = async () => {
+    if (!loginWithPassword) return setLoginStatus('Supabase 登录未配置。');
+    if (ensureCanSubmit() !== true) return;
     try {
       setPendingAction('password');
       setLoginStatus('正在登录...');
       const payload = await loginWithPassword(account, password);
-      setLoginStatus('登录成功，正在进入上传简历。');
+      setLoginStatus('登录成功，正在进入 KikiJob。');
       onAuthChanged?.(payload);
-      onStepComplete?.();
     } catch (error) {
-      setLoginStatus(error.message || '登录失败，请检查账号密码。');
+      setLoginStatus(toFriendlyAuthError(error, 'login'));
     } finally {
       setPendingAction('');
     }
   };
 
-  const handleRequestEmailCode = async () => {
-    if (!requestEmailCode) return setLoginStatus('邮箱验证码接口未启动。');
-    if (!login.acceptedTerms) return setLoginStatus('请先勾选同意服务条款和隐私说明，再获取验证码。');
-    if (!account) return setLoginStatus('请先输入邮箱。');
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(account)) return setLoginStatus('请输入有效邮箱后再获取验证码。');
+  const handlePasswordRegister = async () => {
+    if (!registerWithPassword) return setLoginStatus('Supabase 注册未配置。');
+    if (ensureCanSubmit() !== true) return;
     try {
-      setPendingAction('requestEmailCode');
-      setLoginStatus(`正在向 ${account} 发送验证码...`);
-      const payload = await requestEmailCode(account);
-      setLoginStatus(payload.devCode ? `邮箱验证码已生成：${payload.devCode}（本地开发模式）` : `验证码已发送至 ${payload.email}`);
+      setPendingAction('register');
+      setLoginStatus('正在注册...');
+      const payload = await registerWithPassword(account, password);
+      setLoginStatus('注册成功，正在进入 KikiJob。');
+      onAuthChanged?.(payload);
     } catch (error) {
-      setLoginStatus(error.message || '验证码发送失败。');
+      setLoginStatus(toFriendlyAuthError(error, 'register'));
     } finally {
       setPendingAction('');
     }
   };
 
-  const handleVerifyEmail = async () => {
-    if (!verifyEmailCode) return setLoginStatus('邮箱验证码登录接口未启动。');
+  const handleOAuthLogin = async (provider) => {
+    if (!signInWithOAuth) return setLoginStatus('Supabase OAuth 未配置。');
     if (!login.acceptedTerms) return setLoginStatus('请先勾选同意服务条款和隐私说明。');
-    if (!account) return setLoginStatus('请先输入邮箱。');
-    if (!emailCode) return setLoginStatus('请先输入邮箱验证码。');
     try {
-      setPendingAction('verifyEmailCode');
-      setLoginStatus('正在验证...');
-      const payload = await verifyEmailCode(account, emailCode);
-      setLoginStatus('登录成功，正在进入上传简历。');
-      onAuthChanged?.(payload);
-      onStepComplete?.();
+      setPendingAction(provider);
+      setLoginStatus(provider === 'google' ? '正在打开 Google 登录...' : '正在打开 GitHub 登录...');
+      await signInWithOAuth(provider);
     } catch (error) {
-      setLoginStatus(error.message || '验证码不正确或已过期。');
+      setLoginStatus(toFriendlyAuthError(error, provider));
     } finally {
       setPendingAction('');
     }
@@ -200,14 +197,6 @@ function LoginStep({
     <div className="onboarding-step login-step-shell">
       <section className="login-template-card" aria-label="登录 KikiJob">
         <h3>登录</h3>
-        <div className="login-mode-toggle" aria-label="登录方式">
-          <button type="button" className={mode === 'password' ? 'selected' : ''} onClick={() => setMode('password')}>
-            <KeyRound size={17} />邮箱密码
-          </button>
-          <button type="button" className={mode === 'emailCode' ? 'selected' : ''} onClick={() => setMode('emailCode')}>
-            <Mail size={17} />邮箱验证码
-          </button>
-        </div>
         <div className="login-form-card">
           <label>
             <span>电子邮件</span>
@@ -219,49 +208,45 @@ function LoginStep({
               aria-invalid={Boolean(errors.account)}
               aria-describedby={errors.account ? 'onboarding-account-error' : undefined}
             />
-            <ErrorText id="onboarding-account-error" message={errors.account} />
+              <ErrorText id="onboarding-account-error" message={errors.account} />
           </label>
-          {mode === 'password' ? (
-            <label>
-              <span>密码</span>
-              <input
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder="至少 6 位密码"
-                autoComplete="current-password"
-              />
-            </label>
-          ) : (
-            <div className="sms-login-row">
-              <label>
-                <span>验证码</span>
-                <input value={emailCode} onChange={(event) => setEmailCode(event.target.value)} placeholder="6 位验证码" inputMode="numeric" />
-              </label>
-              <button
-                type="button"
-                className="secondary-action"
-                onClick={handleRequestEmailCode}
-                disabled={pendingAction === 'requestEmailCode'}
-              >
-                {pendingAction === 'requestEmailCode' ? '发送中...' : '获取验证码'}
-              </button>
-            </div>
-          )}
-          <button
-            type="button"
-            className="primary-action login-main-button"
-            onClick={mode === 'password' ? handlePasswordLogin : handleVerifyEmail}
-            disabled={Boolean(pendingAction)}
-          >
-            {pendingAction === 'password'
-              ? '登录中...'
-              : pendingAction === 'verifyEmailCode'
-                ? '验证中...'
-                : mode === 'password'
-                  ? '登录 / 注册'
-                  : '验证码登录'}
-          </button>
+          <label>
+            <span>密码</span>
+            <input
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="至少 6 位密码"
+              autoComplete="current-password"
+            />
+          </label>
+          <div className="login-password-actions">
+            <button
+              type="button"
+              className="primary-action login-main-button"
+              onClick={handlePasswordLogin}
+              disabled={Boolean(pendingAction)}
+            >
+              {pendingAction === 'password' ? '登录中...' : '登录'}
+            </button>
+            <button
+              type="button"
+              className="secondary-action login-main-button"
+              onClick={handlePasswordRegister}
+              disabled={Boolean(pendingAction)}
+            >
+              {pendingAction === 'register' ? '注册中...' : '注册账号'}
+            </button>
+          </div>
+          <div className="login-divider"><span>或</span></div>
+          <div className="login-oauth-actions">
+            <button type="button" className="secondary-action" onClick={() => handleOAuthLogin('google')} disabled={Boolean(pendingAction)}>
+              <Mail size={17} /> 使用 Google 登录
+            </button>
+            <button type="button" className="secondary-action" onClick={() => handleOAuthLogin('github')} disabled={Boolean(pendingAction)}>
+              <KeyRound size={17} /> 使用 GitHub 登录
+            </button>
+          </div>
           {loginStatus && (
             <p className="login-action-status" role="status" aria-live="polite">
               {loginStatus}
@@ -282,6 +267,22 @@ function LoginStep({
       </section>
     </div>
   );
+}
+
+function toFriendlyAuthError(error, action = 'login') {
+  const message = String(error?.message || '').toLowerCase();
+  if (message.includes('invalid login credentials')) return '邮箱或密码错误。';
+  if (message.includes('already registered') || message.includes('already exists') || message.includes('user already')) {
+    return '该邮箱已经注册，请直接登录。';
+  }
+  if (message.includes('password') && (message.includes('six') || message.includes('6') || message.includes('least'))) {
+    return '密码至少需要 6 位。';
+  }
+  if (message.includes('email not confirmed')) return '邮箱验证尚未关闭，请在 Supabase 关闭 Confirm Email 后重试。';
+  if (action === 'google') return 'Google 登录失败，请重试。';
+  if (action === 'github') return 'GitHub 登录失败，请重试。';
+  if (action === 'register') return error?.message || '注册失败，请检查邮箱和密码。';
+  return error?.message || '登录失败，请检查邮箱和密码。';
 }
 
 function ResumeStep({ applyPendingProfile, draft, errors, setField, uploadResumeFile }) {
