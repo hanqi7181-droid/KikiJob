@@ -61,7 +61,10 @@
 - 已接入 Supabase Auth 第一版：邮箱密码注册/登录、Google 登录、GitHub 登录、退出登录、刷新保持登录状态。
 - 登录页已移除自建邮箱验证码入口；当前阶段不再使用 Resend 发送 Auth 邮件。
 - 前端启动时会先 `supabase.auth.getSession()`，并监听 `onAuthStateChange`；session 未读取完成时显示“正在读取登录状态...”，避免页面闪跳。
-- 未登录时停留在登录引导页，登录步骤不能再关闭绕过；登录成功后进入现有主系统。
+- 未登录时停留在登录引导页，登录步骤不能再关闭绕过；新 Supabase 用户会继续走 6 步资料收集，完成状态按 Supabase `user.id` 单独记录。
+- 对未完成 6 步的新 Supabase 用户，前端不会把后端旧默认用户的 profile/resume/application 数据灌入引导页，避免新用户看到旧资料。
+- “我的资料 → 简历版本”上传已复用简历解析链路：上传后走后端文档解析 → Doubao → Zod，并把结果自动合并到基本资料、教育经历、工作/实习经历、项目经历的空字段中；已有字段不覆盖，多段经历按数组 index 合并。
+- 非主页顶部的通知、头像、退出三个重复/无效按钮已移除；退出保留在“我的资料”左侧/隐私数据区。
 - 前端会把 Supabase access token 放进现有 Bearer 请求头槽位，后端用 Supabase anon key 验证 token 后继续走现有接口。
 - 已新增独立后端公司池 `server/companyPool.js`，把 27 届校招表第一批可读内容结构化为公司数据：公司类型、行业、业务线、岗位方向、城市、双非/本科/女性友好标签、适合人群和入职体验摘要。
 - 当前公司池共 135 家，无重复；其中 133 家已有明确招聘/校招/官网承载入口，2 家因截图未含 URL 且暂未核到稳定入口，仍标为 `official-search`，在前端显示为“查找官网入口”，不伪装成已核验官网投递。
@@ -158,6 +161,7 @@
 - 本地 Python 3.11 可用，但当前环境未安装 `docling`。因此 Docling 默认不启用。
 - 当前仓库没有 Dockerfile、requirements 或 docling-serve 部署配置；把 Docling 默认上线会明显增加部署复杂度。
 - 当前 Supabase Auth 已能获取 `user.id` / `user.email`，但后端业务数据仍暂时复用旧的默认用户 id；这只是兼容旧 schema 的过渡方案，不是真正多用户隔离。
+- 本地浏览器里旧的全局 onboarding 完成标记不再决定新 Supabase 用户是否跳过引导；但真正云端用户资料隔离仍需后续把业务表按 Supabase `user.id` 迁移。
 - 当前 Doubao 解析只在 `ARK_API_KEY` 和 `DOUBAO_MODEL` 都配置时启用；未配置时仍走原有本地规则解析。
 - 正式版若“调用了豆包但页面全是未识别”，优先检查上传接口返回的 `resume.parseDiagnostics`：`textLength=0` 多半是文档抽取失败；`parser=local-fallback` 多半是豆包调用或 Zod 校验失败；`parseWarning=AI_RETURNED_EMPTY_FIELDS` 表示豆包返回字段过少但本地规则已尝试兜底。
 - `npm run resume:parse:doubao` 只验证 Provider 和 Zod，不等于完整上传接口端到端验证。

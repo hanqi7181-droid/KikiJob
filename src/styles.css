@@ -2799,6 +2799,34 @@ textarea:disabled {
   min-height: 74px;
 }
 
+.profile-save-state,
+.resume-parse-summary {
+  border: 1px solid rgba(95, 127, 174, 0.22);
+  border-radius: 8px;
+  background: rgba(248, 250, 252, 0.88);
+  color: #536176;
+  padding: 12px 14px;
+}
+
+.profile-save-state {
+  margin: 0;
+  font-weight: 800;
+}
+
+.resume-parse-summary {
+  display: grid;
+  gap: 4px;
+}
+
+.resume-parse-summary strong,
+.resume-parse-summary span {
+  margin: 0;
+}
+
+.resume-parse-summary strong {
+  color: #2a0f14;
+}
+
 .privacy-rule-list {
   display: grid;
   gap: 10px;

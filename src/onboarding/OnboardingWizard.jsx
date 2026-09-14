@@ -58,6 +58,12 @@ export function OnboardingWizard({
   }, [appProfile, parsedResume]);
 
   useEffect(() => {
+    if (authUser && currentStep.id === 'login') {
+      setStepIndex((current) => Math.max(current, 1));
+    }
+  }, [authUser, currentStep.id]);
+
+  useEffect(() => {
     if (minimized) return undefined;
     const previousActive = document.activeElement;
     const first = firstFocusable(dialogRef.current);

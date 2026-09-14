@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   BadgeCheck,
-  Bell,
   BriefcaseBusiness,
   Building2,
   CalendarDays,
@@ -51,7 +50,9 @@ import { buildStandardFormMappings, normalizeProfileData } from './data/standard
 import { OnboardingWizard } from './onboarding/OnboardingWizard.jsx';
 import { isSupabaseConfigured, supabase } from './lib/supabase.js';
 import {
+  applyParsedProfileWithTouched,
   defaultOnboardingState,
+  profileFromParsedResume,
   readOnboardingCompleted,
   saveOnboardingCompleted,
   saveOnboardingDraft,
@@ -60,6 +61,7 @@ import {
 import './styles.css';
 
 const connectedText = 'connected';
+const USER_ONBOARDING_COMPLETED_PREFIX = 'kikijob.onboardingCompleted.';
 const primaryRoutes = [
   { id: 'recommend', label: '推荐', icon: Search },
   { id: 'assist', label: '辅助投递', icon: ClipboardList },
@@ -131,6 +133,59 @@ function toClientAuthUser(user = {}) {
   };
 }
 
+function readUserOnboardingCompleted(userId) {
+  if (!userId) return false;
+  try {
+    return window.localStorage?.getItem(`${USER_ONBOARDING_COMPLETED_PREFIX}${userId}`) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function saveUserOnboardingCompleted(userId, completed) {
+  if (!userId) return;
+  try {
+    const key = `${USER_ONBOARDING_COMPLETED_PREFIX}${userId}`;
+    if (completed) window.localStorage?.setItem(key, 'true');
+    else window.localStorage?.removeItem(key);
+  } catch {
+    // Local storage can be unavailable in restricted browser modes.
+  }
+}
+
+function mergeProfileCollection(existingItems = [], parsedItems = []) {
+  const existing = Array.isArray(existingItems) ? existingItems : [];
+  const parsed = Array.isArray(parsedItems) ? parsedItems : [];
+  const maxLength = Math.max(existing.length, parsed.length);
+  const merged = [];
+  for (let index = 0; index < maxLength; index += 1) {
+    const current = existing[index] || {};
+    const parsedItem = parsed[index] || {};
+    const next = { ...current };
+    for (const [key, value] of Object.entries(parsedItem)) {
+      if (!hasProfileValue(next[key]) && hasProfileValue(value)) next[key] = value;
+    }
+    if (Object.keys(next).length) merged.push(next);
+  }
+  return merged;
+}
+
+function hasProfileValue(value) {
+  if (Array.isArray(value)) return value.length > 0;
+  return value !== null && value !== undefined && String(value).trim() !== '';
+}
+
+function mergeProfileWithParsedResume(currentProfile = {}, parsedResume = {}) {
+  const parsedProfile = profileFromParsedResume(parsedResume, currentProfile);
+  const merged = applyParsedProfileWithTouched(currentProfile, parsedProfile);
+  return {
+    ...merged,
+    education: mergeProfileCollection(currentProfile.education, parsedProfile.education),
+    experiences: mergeProfileCollection(currentProfile.experiences, parsedProfile.experiences),
+    projects: mergeProfileCollection(currentProfile.projects, parsedProfile.projects),
+  };
+}
+
 function App() {
   const [profile, setProfile] = useState(initialProfile);
   const [jobs, setJobs] = useState([]);
@@ -139,6 +194,7 @@ function App() {
   const [parsedResume, setParsedResume] = useState(null);
   const [customMappings, setCustomMappings] = useState(null);
   const [resumeVersions, setResumeVersions] = useState([]);
+  const [resumeUploadStatus, setResumeUploadStatus] = useState('');
   const [careerUrl, setCareerUrl] = useState('');
   const [scanPayloadText, setScanPayloadText] = useState('');
   const [autofillPreview, setAutofillPreview] = useState(() => readAssistSession().autofillPreview || null);
@@ -173,9 +229,11 @@ function App() {
       setAuthSession(session || null);
       saveAuthToken(session?.access_token || '');
       if (session?.user) {
-        setAuthUser(toClientAuthUser(session.user));
-        saveOnboardingCompleted(true);
-        setOnboardingCompleted(true);
+        const nextUser = toClientAuthUser(session.user);
+        const completed = readUserOnboardingCompleted(nextUser.id);
+        setAuthUser(nextUser);
+        saveOnboardingCompleted(completed);
+        setOnboardingCompleted(completed);
       } else {
         setAuthUser(null);
         saveAuthToken('');
@@ -219,6 +277,7 @@ function App() {
         setCustomMappings(null);
         setParsedResume(null);
         setResumeVersions([]);
+        setResumeUploadStatus('');
       }
       return undefined;
     }
@@ -228,14 +287,16 @@ function App() {
     fetchBootstrap()
       .then((payload) => {
         if (!isMounted) return;
-        setProfile(payload.profile || initialProfile);
+        const sessionUser = authSession?.user ? toClientAuthUser(authSession.user) : null;
+        const completed = sessionUser ? readUserOnboardingCompleted(sessionUser.id) : false;
+        setProfile(completed ? (payload.profile || initialProfile) : createEmptyClientProfile(sessionUser?.email || ''));
         setJobs(payload.jobs || []);
-        setStatusMap(payload.applications || {});
-        setApplicationDetails(payload.applicationDetails || {});
-        setCustomMappings(payload.formMappings?.length ? payload.formMappings : null);
-        setParsedResume(payload.latestResume?.parsedProfile || null);
-        setResumeVersions(payload.resumes || (payload.latestResume ? [payload.latestResume] : []));
-        if (authSession?.user) setAuthUser(toClientAuthUser(authSession.user));
+        setStatusMap(completed ? (payload.applications || {}) : {});
+        setApplicationDetails(completed ? (payload.applicationDetails || {}) : {});
+        setCustomMappings(completed && payload.formMappings?.length ? payload.formMappings : null);
+        setParsedResume(completed ? (payload.latestResume?.parsedProfile || null) : null);
+        setResumeVersions(completed ? (payload.resumes || (payload.latestResume ? [payload.latestResume] : [])) : []);
+        if (sessionUser) setAuthUser(sessionUser);
         else setAuthUser(payload.user || null);
         setApiState(connectedText);
       })
@@ -425,17 +486,36 @@ function App() {
     update('resumeName', fileName);
     if (!fileName || apiState !== connectedText) return;
 
+    setResumeUploadStatus('正在上传并解析简历...');
     uploadResume(file)
       .then((payload) => {
-        setParsedResume(payload.resume?.parsedProfile || null);
+        const nextParsedResume = payload.resume?.parsedProfile || null;
+        setParsedResume(nextParsedResume);
         setCustomMappings(payload.formMappings?.length ? payload.formMappings : null);
+        if (nextParsedResume) {
+          setProfile((current) => {
+            const nextProfile = {
+              ...mergeProfileWithParsedResume(current, nextParsedResume),
+              resumeName: payload.resume?.fileName || fileName,
+            };
+            if (apiState === connectedText) {
+              saveProfileToApi(nextProfile).catch(() => setApiState('简历已解析，资料自动保存失败，请稍后重试'));
+            }
+            return nextProfile;
+          });
+        }
+        setResumeUploadStatus('解析完成，已自动填入空字段。');
         fetchResumes()
-          .then((resumePayload) => setResumeVersions(resumePayload.resumes || []))
+          .then((resumePayload) => {
+            const nextVersions = resumePayload.resumes || [];
+            setResumeVersions(nextVersions.length ? nextVersions : (payload.resume ? [payload.resume] : []));
+          })
           .catch(() => {});
       })
       .catch(() => {
         createResume(fileName).catch(() => setApiState('简历记录保存失败，请检查后端服务'));
         setApiState('简历解析失败，已先记录文件名');
+        setResumeUploadStatus('解析失败，请检查文件或稍后重试。');
       });
   };
 
@@ -584,10 +664,11 @@ function App() {
     if (data?.session?.access_token) saveAuthToken(data.session.access_token);
     if (!data?.user) throw new Error('登录失败，请稍后重试。');
     const nextUser = toClientAuthUser(data.user);
+    const completed = readUserOnboardingCompleted(nextUser.id);
     setAuthUser(nextUser);
     setAuthSession(data.session || null);
-    saveOnboardingCompleted(true);
-    setOnboardingCompleted(true);
+    saveOnboardingCompleted(completed);
+    setOnboardingCompleted(completed);
     return { user: nextUser, session: data.session };
   };
 
@@ -600,8 +681,9 @@ function App() {
       const nextUser = toClientAuthUser(data.user);
       setAuthUser(nextUser);
       setAuthSession(data.session);
-      saveOnboardingCompleted(true);
-      setOnboardingCompleted(true);
+      saveUserOnboardingCompleted(nextUser.id, false);
+      saveOnboardingCompleted(false);
+      setOnboardingCompleted(false);
       return { user: nextUser, session: data.session };
     }
     return handleSupabasePasswordLogin(email, password);
@@ -681,19 +763,6 @@ function App() {
               </button>
             ))}
           </nav>
-          <div className="header-actions" aria-label="账户操作">
-            <button aria-label="通知">
-              <Bell size={19} />
-            </button>
-            <button aria-label="我的资料" onClick={() => setActiveTab('profile')}>
-              <UserCircle size={20} />
-            </button>
-            {authUser && (
-              <button className="logout-action" onClick={handleLogout}>
-                退出
-              </button>
-            )}
-          </div>
         </div>
       </header>}
 
@@ -812,6 +881,7 @@ function App() {
               onLogout={handleLogout}
               parsedResume={parsedResume}
               profile={profile}
+              resumeUploadStatus={resumeUploadStatus}
               resumeVersions={resumeVersions}
               scoredJobs={scoredJobs}
               setCustomMappings={setCustomMappings}
@@ -849,10 +919,9 @@ function App() {
             setApiState(connectedText);
             if (payload?.session?.access_token) saveAuthToken(payload.session.access_token);
             if (payload?.user) setAuthUser(payload.user);
-            saveOnboardingDraft(defaultOnboardingState);
             saveOnboardingStep(0);
-            saveOnboardingCompleted(true);
-            setOnboardingCompleted(true);
+            saveOnboardingCompleted(readUserOnboardingCompleted(payload?.user?.id));
+            setOnboardingCompleted(readUserOnboardingCompleted(payload?.user?.id));
           }}
           onProfileSaved={({ formMappings: nextMappings, parsedResume: nextParsedResume, profile: nextProfile, resumeName }) => {
             if (nextParsedResume) setParsedResume(nextParsedResume);
@@ -860,7 +929,11 @@ function App() {
             if (nextProfile) setProfile(nextProfile);
             if (resumeName) setProfile((current) => ({ ...current, resumeName }));
           }}
-          onComplete={() => setOnboardingCompleted(true)}
+          onComplete={() => {
+            if (authUser?.id) saveUserOnboardingCompleted(authUser.id, true);
+            saveOnboardingCompleted(true);
+            setOnboardingCompleted(true);
+          }}
         />
       )}
     </main>
@@ -2275,6 +2348,7 @@ function MyProfilePage({
   onLogout,
   parsedResume,
   profile,
+  resumeUploadStatus,
   resumeVersions,
   scoredJobs,
   setCustomMappings,
@@ -2383,6 +2457,7 @@ function MyProfilePage({
                 handleSetDefaultResume={handleSetDefaultResume}
                 parsedResume={parsedResume}
                 profile={profile}
+                resumeUploadStatus={resumeUploadStatus}
                 resumeVersions={resumeVersions}
               />
             )}
@@ -2562,7 +2637,15 @@ function RepeatableProfileGroup({ addLabel, fields, items, multiline = [], onAdd
   );
 }
 
-function ResumeVersionsSection({ handleDeleteResume, handleResumeChange, handleSetDefaultResume, parsedResume, profile, resumeVersions }) {
+function ResumeVersionsSection({
+  handleDeleteResume,
+  handleResumeChange,
+  handleSetDefaultResume,
+  parsedResume,
+  profile,
+  resumeUploadStatus,
+  resumeVersions,
+}) {
   const versions = ensureArray(resumeVersions);
   return (
     <div className="resume-version-stack">
@@ -2571,6 +2654,13 @@ function ResumeVersionsSection({ handleDeleteResume, handleResumeChange, handleS
         <span>{profile.resumeName || '重新上传简历'}</span>
         <input type="file" accept=".pdf,.docx,.txt,.md" onChange={(event) => handleResumeChange(event.target.files?.[0])} />
       </label>
+      {resumeUploadStatus && <p className="profile-save-state">{resumeUploadStatus}</p>}
+      {parsedResume && (
+        <div className="resume-parse-summary">
+          <strong>已识别字段</strong>
+          <span>基础资料、教育经历、工作/实习经历、项目经历会自动填入空字段；已有内容保留。</span>
+        </div>
+      )}
       {versions.map((resume) => (
         <article className="resume-version-card" key={resume.id}>
           <div>
@@ -2583,7 +2673,7 @@ function ResumeVersionsSection({ handleDeleteResume, handleResumeChange, handleS
           </div>
         </article>
       ))}
-      {!versions.length && <EmptyInline text={parsedResume ? '当前只有解析资料，未返回简历版本列表。' : '暂无简历版本。'} />}
+      {!versions.length && !profile.resumeName && <EmptyInline text={parsedResume ? '当前只有解析资料，未返回简历版本列表。' : '暂无简历版本。'} />}
     </div>
   );
 }

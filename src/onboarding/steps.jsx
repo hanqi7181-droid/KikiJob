@@ -122,6 +122,7 @@ function LoginStep({
   errors,
   loginWithPassword,
   onAuthChanged,
+  onStepComplete,
   registerWithPassword,
   setField,
   signInWithOAuth,
@@ -154,8 +155,9 @@ function LoginStep({
       setPendingAction('password');
       setLoginStatus('正在登录...');
       const payload = await loginWithPassword(account, password);
-      setLoginStatus('登录成功，正在进入 KikiJob。');
+      setLoginStatus('登录成功，正在进入上传简历。');
       onAuthChanged?.(payload);
+      onStepComplete?.();
     } catch (error) {
       setLoginStatus(toFriendlyAuthError(error, 'login'));
     } finally {
@@ -170,8 +172,9 @@ function LoginStep({
       setPendingAction('register');
       setLoginStatus('正在注册...');
       const payload = await registerWithPassword(account, password);
-      setLoginStatus('注册成功，正在进入 KikiJob。');
+      setLoginStatus('注册成功，正在进入上传简历。');
       onAuthChanged?.(payload);
+      onStepComplete?.();
     } catch (error) {
       setLoginStatus(toFriendlyAuthError(error, 'register'));
     } finally {
