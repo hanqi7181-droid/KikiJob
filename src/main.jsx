@@ -133,7 +133,7 @@ function App() {
   const [resumeVersions, setResumeVersions] = useState([]);
   const [careerUrl, setCareerUrl] = useState('');
   const [scanPayloadText, setScanPayloadText] = useState('');
-  const [autofillPreview, setAutofillPreview] = useState(null);
+  const [autofillPreview, setAutofillPreview] = useState(() => readAssistSession().autofillPreview || null);
   const [autofillConfirmed, setAutofillConfirmed] = useState(false);
   const [autofillRunState, setAutofillRunState] = useState('');
   const [autofillRunResult, setAutofillRunResult] = useState(null);
@@ -655,6 +655,7 @@ function App() {
               handleRunAutofill={handleRunAutofill}
               scanPayloadText={scanPayloadText}
               setAutofillConfirmed={setAutofillConfirmed}
+              setAutofillPreview={setAutofillPreview}
               setCareerUrl={setCareerUrl}
               setScanPayloadText={setScanPayloadText}
               scoredJobs={scoredJobs}
@@ -2038,6 +2039,16 @@ function createAutofillSession(targetUrl, selectedJob) {
   };
 }
 
+function isValidAssistStepTarget(step, { targetUrl, session, autofillPreview, autofillConfirmed }) {
+  if (step <= 0) return true;
+  if (step >= 1 && !targetUrl) return false;
+  if (step >= 3 && !session && !targetUrl) return false;
+  if (step >= 4 && !autofillPreview) return false;
+  if (step >= 5 && !autofillPreview) return false;
+  if (step >= 6 && !autofillConfirmed) return false;
+  return true;
+}
+
 function assistStateForStep(step, preview, confirmed, result) {
   if (step >= 7) {
     if (result === 'success') return 'SUBMITTED';
@@ -2997,6 +3008,7 @@ function AutofillPage({
   handleScanCareerForm,
   scanPayloadText,
   setAutofillConfirmed,
+  setAutofillPreview,
   setCareerUrl,
   setScanPayloadText,
   scoredJobs,
@@ -3031,8 +3043,9 @@ function AutofillPage({
       loggedInUrl,
       session,
       submissionResult,
+      autofillPreview,
     });
-  }, [loggedInUrl, selectedJobId, session, submissionResult, wizardStep]);
+  }, [autofillPreview, loggedInUrl, selectedJobId, session, submissionResult, wizardStep]);
 
   useEffect(() => {
     if (!selectedJob) return;
@@ -3047,6 +3060,13 @@ function AutofillPage({
   useEffect(() => {
     if (autofillConfirmed && wizardStep < 5) setWizardStep(5);
   }, [autofillConfirmed, wizardStep]);
+
+  useEffect(() => {
+    if (wizardStep >= 5 && !autofillPreview) {
+      setWizardStep(4);
+      setAssistMessage('第 5 步需要先完成第 4 步扫描映射。请重新导入扩展扫描 JSON 或使用 URL 兜底识别。');
+    }
+  }, [autofillPreview, wizardStep]);
 
   const copyPlan = () => {
     const text = autofillScript
@@ -3087,6 +3107,15 @@ function AutofillPage({
     setWizardStep((current) => Math.max(0, current - 1));
   };
 
+  const goToStep = (index) => {
+    if (!isValidAssistStepTarget(index, { targetUrl, session, autofillPreview, autofillConfirmed })) {
+      setAssistMessage(index >= 5 ? '请先完成第 4 步扫描映射，再进入扩展填充。' : '请先补齐前置步骤。');
+      return;
+    }
+    setAssistMessage('');
+    setWizardStep(index);
+  };
+
   const handleSubmitResult = (result) => {
     setSubmissionResult(result);
     if (selectedJob?.id) {
@@ -3108,6 +3137,7 @@ function AutofillPage({
     setSession(null);
     setSubmissionResult('unknown');
     setAutofillConfirmed(false);
+    setAutofillPreview?.(null);
     setAssistMessage('已重置当前辅助投递向导。');
   };
 
@@ -3124,7 +3154,7 @@ function AutofillPage({
 
       <div className="assist-stepper" aria-label="辅助投递步骤">
         {steps.map((step, index) => (
-          <button key={step} className={index === wizardStep ? 'active' : index < wizardStep ? 'done' : ''} onClick={() => setWizardStep(index)}>
+          <button key={step} className={index === wizardStep ? 'active' : index < wizardStep ? 'done' : ''} onClick={() => goToStep(index)}>
             <strong>{index + 1}</strong>
             <span>{step}</span>
           </button>
