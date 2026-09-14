@@ -156,6 +156,8 @@
         itemIndex: context.itemIndex,
         itemSelector: context.itemSelector,
         itemText: context.itemText,
+        sectionItemKey: context.sectionItemKey,
+        sectionItemLabel: context.sectionItemLabel,
         pageUrl: location.href,
         adapterName: adapter.name || adapter.id || 'Generic Careers',
         formIndex: form ? forms.indexOf(form) : -1,
@@ -175,14 +177,18 @@
     const sectionTitle = section?.title || '';
     const sectionType = inferSectionType([sectionTitle, section?.text, sectionSnippets(element).join(' ')].filter(Boolean).join(' '));
     const item = sectionType ? nearestSectionItem(element, section?.element || document.body, sectionType) : null;
+    const titleIndex = inferItemIndexFromText([sectionTitle, section?.text, sectionSnippets(element).join(' ')].filter(Boolean).join(' '));
+    const itemIndex = titleIndex >= 0 ? titleIndex : item?.index ?? -1;
     return {
       section: sectionTitle,
       sectionType,
       sectionTitle,
       sectionSelector: section?.element ? selectorFor(section.element) : '',
-      itemIndex: item?.index ?? -1,
+      itemIndex,
       itemSelector: item?.element ? selectorFor(item.element) : '',
       itemText: item?.text || '',
+      sectionItemKey: sectionType ? `${sectionType}:${itemIndex >= 0 ? itemIndex : 'single'}` : '',
+      sectionItemLabel: sectionType ? `${readableSectionTitle(sectionType)}${itemIndex >= 0 ? itemIndex + 1 : ''}` : '',
     };
   }
 
@@ -306,6 +312,25 @@
     }[sectionType] || '';
   }
 
+  function inferItemIndexFromText(text = '') {
+    const value = String(text || '');
+    const match = value.match(/(?:教育|学历|实习|工作|项目|获奖|实践|经历|经验|education|work|internship|project|award)[^\d一二三四五六七八九十]{0,8}([1-9]\d?|[一二三四五六七八九十])/i);
+    if (!match) return -1;
+    const number = chineseNumber(match[1]);
+    return number > 0 ? number - 1 : -1;
+  }
+
+  function chineseNumber(value = '') {
+    const text = String(value || '').trim();
+    if (/^\d+$/.test(text)) return Number(text);
+    const map = { 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10 };
+    if (map[text]) return map[text];
+    if (/^十[一二三四五六七八九]$/.test(text)) return 10 + map[text.slice(1)];
+    if (/^[一二三四五六七八九]十$/.test(text)) return map[text[0]] * 10;
+    if (/^[一二三四五六七八九]十[一二三四五六七八九]$/.test(text)) return map[text[0]] * 10 + map[text[2]];
+    return 0;
+  }
+
   function uniqueElements(elements = []) {
     return elements.filter((element, index) => elements.indexOf(element) === index);
   }
@@ -423,6 +448,7 @@
     nearestUsefulContainerText,
     scanControls,
     scanFields,
+    fieldGroupContext,
     sectionSnippets,
     sectionText,
     textAround,

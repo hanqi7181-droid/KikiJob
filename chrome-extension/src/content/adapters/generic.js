@@ -36,4 +36,5 @@
       };
     },
   };
+  root.adapters.genericAdapter = root.adapters.generic;
 })();

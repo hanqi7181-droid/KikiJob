@@ -2,7 +2,15 @@
   const root = (window.JobPilotAutofill = window.JobPilotAutofill || {});
 
   function getAdapter(url = location.href) {
-    const adapters = [root.adapters?.moka, root.adapters?.generic].filter(Boolean);
+    const adapters = [
+      root.adapters?.moka,
+      root.adapters?.beisen,
+      root.adapters?.nowcoder,
+      root.adapters?.workday,
+      root.adapters?.lever,
+      root.adapters?.greenhouse,
+      root.adapters?.generic,
+    ].filter(Boolean);
     return adapters.find((adapter) => safelyDetect(adapter, url)) || root.adapters.generic;
   }
 

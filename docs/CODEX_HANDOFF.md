@@ -66,6 +66,8 @@
 - “我的资料 → 简历版本”上传已复用简历解析链路：上传后走后端文档解析 → Doubao → Zod，并把结果自动合并到基本资料、教育经历、工作/实习经历、项目经历的空字段中；已有字段不覆盖，多段经历按数组 index 合并。
 - 非主页顶部的通知、头像、退出三个重复/无效按钮已移除；退出保留在“我的资料”左侧/隐私数据区。
 - 辅助投递扫描导入已修复百度招聘页这类 generic JSON：优先从 `section/sectionTitle` 的“工作经历-2”“项目-4”推导 `sectionType + itemIndex`，覆盖插件扫描里不稳定的 `itemIndex`，避免多段工作/项目经历识别成第 1 段或误匹配到姓名。
+- Chrome 插件 adapter 架构已拆出主流 ATS 壳：`genericAdapter`、`mokaAdapter`、`beisenAdapter`、`nowcoderAdapter`、`workdayAdapter`、`leverAdapter`、`greenhouseAdapter`。除 Moka 外，第一版先复用增强后的通用扫描/填充引擎，并通过 registry 按域名优先识别平台。
+- Chrome 插件通用扫描字段已新增 `sectionItemKey` 和 `sectionItemLabel`，并优先从“工作经历-2 / 项目-4”等区块标题推导 item index，让 KikiJob 能按“section + item”组合识别整段经历。
 - 前端会把 Supabase access token 放进现有 Bearer 请求头槽位，后端用 Supabase anon key 验证 token 后继续走现有接口。
 - 已新增独立后端公司池 `server/companyPool.js`，把 27 届校招表第一批可读内容结构化为公司数据：公司类型、行业、业务线、岗位方向、城市、双非/本科/女性友好标签、适合人群和入职体验摘要。
 - 当前公司池共 135 家，无重复；其中 133 家已有明确招聘/校招/官网承载入口，2 家因截图未含 URL 且暂未核到稳定入口，仍标为 `official-search`，在前端显示为“查找官网入口”，不伪装成已核验官网投递。
@@ -98,6 +100,17 @@
 - `package-lock.json`
 - `src/main.jsx`
 - `chrome-extension/src/content/adapters/mokaV2.js`
+- `chrome-extension/src/content/adapters/adapterFactory.js`
+- `chrome-extension/src/content/adapters/beisen.js`
+- `chrome-extension/src/content/adapters/nowcoder.js`
+- `chrome-extension/src/content/adapters/workday.js`
+- `chrome-extension/src/content/adapters/lever.js`
+- `chrome-extension/src/content/adapters/greenhouse.js`
+- `chrome-extension/src/content/adapters/registry.js`
+- `chrome-extension/src/content/core/scanner.js`
+- `chrome-extension/manifest.json`
+- `chrome-extension/popup.js`
+- `chrome-extension/tests/adapterRegistry.test.js`
 - `chrome-extension/tests/mokaV2.test.js`
 - `src/onboarding/OnboardingWizard.jsx`
 - `src/onboarding/steps.jsx`
