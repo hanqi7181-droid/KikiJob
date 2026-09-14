@@ -647,6 +647,7 @@ function App() {
               autofillRunState={autofillRunState}
               autofillScript={autofillScript}
               careerUrl={careerUrl}
+              confirmAutofillFields={confirmAutofillFields}
               formMappings={formMappings}
               handleApplicationDetailChange={handleApplicationDetailChange}
               handleImportExtensionScan={handleImportExtensionScan}
@@ -3001,6 +3002,7 @@ function AutofillPage({
   autofillRunState,
   autofillScript,
   careerUrl,
+  confirmAutofillFields,
   formMappings,
   handleApplicationDetailChange,
   handleImportExtensionScan,
