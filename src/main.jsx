@@ -313,8 +313,8 @@ function App() {
   };
 
   const autofillScript = useMemo(
-    () => (autofillPreview && autofillConfirmed ? buildAutofillScript(autofillPreview) : []),
-    [autofillConfirmed, autofillPreview]
+    () => (autofillPreview ? buildAutofillScript(autofillPreview) : []),
+    [autofillPreview]
   );
 
   const handleRunAutofill = () => {
@@ -3425,8 +3425,8 @@ function AssistFillStep({
     <div className="assist-step-content">
       <StepHeadingLite title="调用 Chrome 扩展填充当前页" text="Web 只生成填充包；请在已登录的招聘申请表页面打开扩展，粘贴填充包，只填字段，不点击提交。" />
       <div className="assist-action-row">
-        <button className="primary-action" onClick={() => setAutofillConfirmed(true)} disabled={!autofillScript.length && !autofillConfirmed}>
-          确认字段并生成填充包
+        <button className="primary-action" onClick={() => setAutofillConfirmed(true)} disabled={!autofillScript.length}>
+          {autofillConfirmed ? '字段已确认' : '确认字段并生成填充包'}
         </button>
         <button className="secondary-action" onClick={copyExtensionPackage} disabled={!extensionPackage.steps.length}>
           复制扩展填充包

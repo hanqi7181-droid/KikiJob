@@ -4,6 +4,7 @@ import {
   applyParsedProfileWithTouched,
   autofillDraftToAppProfile,
   defaultOnboardingState,
+  hydrateOnboardingDraft,
   preferencesDraftToAppProfile,
   profileFromParsedResume,
   sanitizeOnboardingDraft,
@@ -121,4 +122,11 @@ test('onboarding draft sanitizer repairs stale null arrays', () => {
   assert.deepEqual(draft.preferences.locations, ['深圳', '香港']);
   assert.deepEqual(draft.preferences.industries, []);
   assert.deepEqual(draft.autofill.allowedTypes, []);
+});
+
+test('onboarding login account is not prefilled from profile email', () => {
+  const draft = hydrateOnboardingDraft(defaultOnboardingState, { email: 'local@example.com', resumeName: 'resume.pdf' });
+
+  assert.equal(draft.login.account, '');
+  assert.equal(draft.resume.fileName, 'resume.pdf');
 });

@@ -143,7 +143,6 @@ export function updateSectionValue(current, section, key, value) {
 export function hydrateOnboardingDraft(currentDraft, appProfile = {}, parsedResume = null) {
   const parsedProfile = parsedResume ? profileFromParsedResume(parsedResume, appProfile) : null;
   const next = sanitizeOnboardingDraft(currentDraft);
-  if (appProfile?.email && !next.login.account) next.login.account = appProfile.email;
   if (appProfile?.resumeName && !next.resume.fileName) next.resume.fileName = appProfile.resumeName;
   next.preferences = hydratePreferences(next.preferences, appProfile);
   if (parsedProfile) {
