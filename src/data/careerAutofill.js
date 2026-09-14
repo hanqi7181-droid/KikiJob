@@ -240,8 +240,19 @@ function mappingCompatible(scannedField, mapping) {
 }
 
 function sectionItemCompatible(scannedField = {}, mapping = {}) {
-  const scannedSection = canonicalSectionType(scannedField.sectionType || scannedField.section || scannedField.group || '');
-  const mappingSection = canonicalSectionType(mapping.sectionType || mapping.group || mapping.label || mapping.sourceLabel || '');
+  const scannedSection = canonicalSectionType([
+    scannedField.sectionType,
+    scannedField.section,
+    scannedField.sectionTitle,
+    scannedField.group,
+  ].filter(Boolean).join(' '));
+  const mappingSection = canonicalSectionType([
+    mapping.sectionType,
+    mapping.group,
+    mapping.label,
+    mapping.sourceLabel,
+    mapping.aliases,
+  ].filter(Boolean).join(' '));
   if (scannedSection && mappingSection && scannedSection !== mappingSection) return false;
 
   const scannedIndex = normalizedItemIndex(scannedField.itemIndex);
@@ -261,7 +272,7 @@ function canonicalSectionType(text = '') {
   if (/education|教育|学历|学校|院校|专业/i.test(value)) return 'education';
   if (/award|honou?r|获奖|奖项|荣誉|实践|校园经历/i.test(value)) return 'award';
   if (/skills?|language|技能|语言|英语|证书/i.test(value)) return 'skills';
-  if (/personal|contact|basic|个人信息|基础信息|联系方式|姓名|邮箱|手机/i.test(value)) return 'personal';
+  if (/personal|contact|basic|个人信息|基础信息|基础资料|联系方式|姓名|邮箱|手机/i.test(value)) return 'personal';
   return '';
 }
 
@@ -396,6 +407,7 @@ function normalizeScannedField(scannedField = {}, index = 0) {
             : scannedField.name
             ? 'name'
               : '');
+  const sectionContext = inferRepeatedSectionContext(scannedField);
   return {
     ...scannedField,
     id: scannedField.id || scannedField.fieldId || scannedField.selector || `field-${index + 1}`,
@@ -403,10 +415,41 @@ function normalizeScannedField(scannedField = {}, index = 0) {
     labelSource,
     sourceLabel,
     sourceLabelSource,
+    sectionType: sectionContext.sectionType || scannedField.sectionType,
+    itemIndex: sectionContext.itemIndex ?? scannedField.itemIndex,
     type: normalizeFieldType(elementType, inputType),
     name: scannedField.name || scannedField.id || '',
     placeholder: scannedField.placeholder || '',
   };
+}
+
+function inferRepeatedSectionContext(scannedField = {}) {
+  const text = [scannedField.section, scannedField.sectionTitle, scannedField.group].filter(Boolean).join(' ');
+  const normalized = String(text || '');
+  if (!normalized) return {};
+
+  const sectionType = canonicalSectionType(normalized);
+  const itemIndex = inferOneBasedIndex(normalized);
+  return {
+    sectionType,
+    itemIndex: itemIndex > 0 ? itemIndex - 1 : undefined,
+  };
+}
+
+function inferOneBasedIndex(text = '') {
+  const value = String(text || '');
+  const arabic = value.match(/(?:经历|项目|教育|实习|工作|获奖|荣誉|实践)?[-_\s]*(\d+)(?:\s*[）)]|\s|$|（|\()/);
+  if (arabic) return Number(arabic[1]);
+
+  const chinese = value.match(/(?:第)?([一二三四五六七八九十])(?:段|条|个|项|份)?/);
+  if (chinese) return chineseNumber(chinese[1]);
+
+  return -1;
+}
+
+function chineseNumber(value = '') {
+  const map = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10 };
+  return map[value] || -1;
 }
 
 function stripPromptWords(value = '') {

@@ -47,6 +47,16 @@ const mappings = [
     sectionType: 'internship',
     itemIndex: 1,
   },
+  {
+    id: 'project4Name',
+    label: '项目经历4-项目名称',
+    sourceLabel: '项目经历4-项目名称',
+    value: '智能推荐系统',
+    aliases: '项目名称 / Project Name',
+    group: '项目经历',
+    sectionType: 'project',
+    itemIndex: 3,
+  },
 ];
 
 test('URL-only preview uses Ctrip template when host is known', () => {
@@ -137,6 +147,50 @@ test('section item context keeps repeated work cards aligned by index', () => {
 
   assert.equal(preview.fields[0].matchedSourceLabel, '实习经历2-公司名称');
   assert.equal(preview.fields[0].value, '中国联通');
+});
+
+test('section titles override unstable itemIndex from generic scanners', () => {
+  const preview = buildAutofillPreviewFromScannedFields(
+    {
+      url: 'https://talent.baidu.com/jobs/resume/create',
+      adapter: 'generic',
+      fields: [
+        {
+          fieldId: 'companyName1',
+          elementType: 'input',
+          inputType: 'input',
+          label: '',
+          placeholder: '请输入',
+          name: 'companyName1',
+          nearbyText: '企业名称',
+          section: '工作经历-2',
+          sectionType: 'internship',
+          itemIndex: 0,
+        },
+        {
+          fieldId: 'subjectName3',
+          elementType: 'input',
+          inputType: 'input',
+          label: '',
+          placeholder: '请输入',
+          name: 'subjectName3',
+          nearbyText: '项目名称',
+          section: '项目-4（可填写科研、课程、实习、实践等项目）',
+          sectionType: 'project',
+          itemIndex: 0,
+        },
+      ],
+    },
+    mappings,
+  );
+
+  assert.equal(preview.fields[0].itemIndex, 1);
+  assert.equal(preview.fields[0].matchedSourceLabel, '实习经历2-公司名称');
+  assert.equal(preview.fields[0].value, '中国联通');
+  assert.equal(preview.fields[1].sectionType, 'project');
+  assert.equal(preview.fields[1].itemIndex, 3);
+  assert.equal(preview.fields[1].matchedSourceLabel, '项目经历4-项目名称');
+  assert.equal(preview.fields[1].value, '智能推荐系统');
 });
 
 test('manually confirmed medium-confidence fields are not marked as requiring user check', () => {
