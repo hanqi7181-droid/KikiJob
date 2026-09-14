@@ -51,7 +51,7 @@
 - Chrome 插件/自动填表匹配已收紧：扫描字段时不再把 placeholder 当作真实 label；`请输入/请选择/请填写` 等提示词只作为弱证据或直接未匹配；通用匹配器和 KikiJob 预览都会用大区块上下文阻止教育经历、工作经历、项目经历串填。
 - Chrome 插件通用扫描已新增 section item 组合上下文：字段会带上 `sectionType`、`itemIndex`、`sectionSelector`、`itemSelector`，KikiJob 匹配时同一段教育/实习/项目经历只匹配同 index 的简历资料，避免多段经历串填。
 - Chrome 插件 popup 已改为 KikiJob 马卡龙色系，隐藏调试/学习入口；扫描、复制 JSON、填充、确认映射都会给明确成功/失败提示。插件本地 API 地址同步为 `http://localhost:8788/api`。辅助投递扫描表已新增单字段“确认”按钮，中置信字段确认后显示“已确认”。
-- 辅助投递已新增“一键确认可填字段”：KikiJob 扫描映射页可一次确认已有值且已匹配的字段；确认状态会写入扩展填充包的 `confirmed/userConfirmed/requiresUserCheck=false`，不会在下一步和插件里反复显示“需确认”。插件 popup 也新增“一键确认”按钮，可把填充包里的可填字段批量标记为已确认。
+- 辅助投递已新增“一键确认可填字段”：KikiJob 扫描映射页可一次确认已有值且已匹配的字段；确认状态会写入扩展填充包的 `confirmed/userConfirmed/requiresUserCheck=false`，不会在下一步和插件里反复显示“需确认”。插件 popup 保持扫描、复制 JSON、填当前页三个主按钮，不单独放一键确认。
 - 标准字段下拉已按资料段落显示，例如“实习经历 1 / 职责描述”；简历资料仍按 `education`、`experiences`、`projects` 数组保存，每段经历通过 `sectionType + itemIndex` 绑定，不把多段经历拆散混填。
 - 已新增新用户主流程说明文档：`docs/KIKIJOB_USER_FLOW.md`，可用于录屏讲解和冒烟测试。
 - 已新增独立后端公司池 `server/companyPool.js`，把 27 届校招表第一批可读内容结构化为公司数据：公司类型、行业、业务线、岗位方向、城市、双非/本科/女性友好标签、适合人群和入职体验摘要。
