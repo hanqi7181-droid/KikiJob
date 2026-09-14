@@ -290,6 +290,28 @@ function App() {
     setAutofillRunResult(null);
   };
 
+  const confirmAutofillFields = (ids = []) => {
+    const idSet = new Set(ids);
+    setAutofillPreview((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        fields: current.fields.map((field) => {
+          if (!idSet.has(field.id)) return field;
+          return {
+            ...field,
+            confidence: '人工确认',
+            userConfirmed: true,
+            requiresUserCheck: false,
+            instruction: field.instruction === '需要人工选择字段' ? '用户已确认字段和值' : `${field.instruction || '字段已确认'}；用户已确认`,
+          };
+        }),
+      };
+    });
+    setAutofillConfirmed(false);
+    setAutofillRunResult(null);
+  };
+
   const autofillScript = useMemo(
     () => (autofillPreview && autofillConfirmed ? buildAutofillScript(autofillPreview) : []),
     [autofillConfirmed, autofillPreview]
@@ -2043,7 +2065,7 @@ function validateAssistStep(step, { targetUrl, session, autofillPreview, autofil
 function summarizeAutofillPreview(preview) {
   const fields = Array.isArray(preview?.fields) ? preview.fields : [];
   const matched = fields.filter((field) => field.confidence === '高' || field.confidence === '人工确认').length;
-  const reviewRequired = fields.filter((field) => field.requiresUserCheck || field.confidence === '中').length;
+  const reviewRequired = fields.filter((field) => (field.requiresUserCheck || field.confidence === '中') && !field.userConfirmed && field.confidence !== '人工确认').length;
   const unsupported = fields.filter((field) => field.confidence === '未匹配' || field.type === 'file').length;
   return {
     total: preview?.totalCount || fields.length,
@@ -2064,6 +2086,9 @@ function buildExtensionPackage(url, script) {
     type: item.type,
     value: item.value,
     action: item.action,
+    confidence: item.confidence,
+    confirmed: item.confirmed,
+    userConfirmed: item.userConfirmed,
     requiresUserCheck: item.requiresUserCheck,
   }));
   return {
@@ -3140,6 +3165,7 @@ function AutofillPage({
         {wizardStep === 4 && (
           <AssistScanStep
             autofillPreview={autofillPreview}
+            confirmAutofillFields={confirmAutofillFields}
             formMappings={formMappings}
             handleImportExtensionScan={handleImportExtensionScan}
             handleScanCareerForm={handleScanCareerForm}
@@ -3256,6 +3282,7 @@ function AssistCreateSessionStep({ session, targetUrl }) {
 
 function AssistScanStep({
   autofillPreview,
+  confirmAutofillFields,
   formMappings,
   handleImportExtensionScan,
   handleScanCareerForm,
@@ -3267,11 +3294,14 @@ function AssistScanStep({
 }) {
   const [confirmNotice, setConfirmNotice] = useState('');
   const confirmField = (field) => {
-    updateAutofillField(field.id, {
-      confidence: '人工确认',
-      instruction: field.instruction === '需要人工选择字段' ? '用户已确认字段和值' : `${field.instruction || '字段已确认'}；用户已确认`,
-    });
+    confirmAutofillFields([field.id]);
     setConfirmNotice(`已确认：${field.label}`);
+  };
+  const confirmableFields = autofillPreview?.fields?.filter((field) => field.value && field.matchedSourceLabel && field.type !== 'file') || [];
+  const pendingConfirmableFields = confirmableFields.filter((field) => field.confidence !== '人工确认' && !field.userConfirmed);
+  const confirmAllFields = () => {
+    confirmAutofillFields(pendingConfirmableFields.map((field) => field.id));
+    setConfirmNotice(`已一键确认 ${pendingConfirmableFields.length} 个可填字段。`);
   };
 
   return (
@@ -3305,6 +3335,12 @@ function AssistScanStep({
             <Metric icon={<BadgeCheck />} label="待确认" value={summary.reviewRequired} />
             <Metric icon={<FileText />} label="未支持" value={summary.unsupported} />
           </div>
+          <div className="assist-action-row">
+            <button className="primary-action" onClick={confirmAllFields} disabled={!pendingConfirmableFields.length}>
+              一键确认可填字段
+            </button>
+            <span className="save-state">按段落匹配简历资料：教育、实习、项目会保留第 1 段、第 2 段的对应关系。</span>
+          </div>
           <div className="autofill-table">
             <div className="autofill-table-head">
               <span>官网字段</span>
@@ -3330,6 +3366,8 @@ function AssistScanStep({
                       matchedSourceLabel: selected?.sourceLabel || '',
                       value: selected?.value || '',
                       confidence: selected ? '人工确认' : '未匹配',
+                      userConfirmed: Boolean(selected),
+                      requiresUserCheck: false,
                       instruction: selected ? field.instruction : '需要人工选择字段',
                     });
                   }}
@@ -3337,7 +3375,7 @@ function AssistScanStep({
                   <option value="">未匹配</option>
                   {formMappings.map((mapping) => (
                     <option key={mapping.id} value={mapping.sourceLabel}>
-                      {mapping.label} / {mapping.sourceLabel}
+                      {formatMappingOption(mapping)}
                     </option>
                   ))}
                 </select>
@@ -3345,18 +3383,18 @@ function AssistScanStep({
                   rows={2}
                   value={field.value}
                   placeholder="待补充"
-                  onChange={(event) => updateAutofillField(field.id, { value: event.target.value, confidence: '人工确认' })}
+                  onChange={(event) => updateAutofillField(field.id, { value: event.target.value, confidence: '人工确认', userConfirmed: true, requiresUserCheck: false })}
                 />
                 <span className={`confidence ${field.confidence === '高' ? 'high' : field.confidence === '未匹配' ? 'low' : 'medium'}`}>
                   {field.confidence}
                 </span>
                 <button
                   type="button"
-                  className={field.confidence === '人工确认' ? 'secondary-action confirm-field-button confirmed' : 'secondary-action confirm-field-button'}
+                  className={field.confidence === '人工确认' || field.userConfirmed ? 'secondary-action confirm-field-button confirmed' : 'secondary-action confirm-field-button'}
                   onClick={() => confirmField(field)}
                   disabled={!field.value && !field.matchedSourceLabel}
                 >
-                  {field.confidence === '人工确认' ? '已确认' : '确认'}
+                  {field.confidence === '人工确认' || field.userConfirmed ? '已确认' : '确认'}
                 </button>
               </article>
             ))}
@@ -3473,6 +3511,14 @@ function StatusPill({ label, value }) {
       <strong>{value}</strong>
     </article>
   );
+}
+
+function formatMappingOption(mapping = {}) {
+  const section = mapping.group || mapping.sectionType || '资料字段';
+  const itemIndex = Number.isInteger(mapping.itemIndex) && mapping.itemIndex >= 0 ? ` ${mapping.itemIndex + 1}` : '';
+  const source = mapping.sourceLabel || mapping.label || '';
+  const compactSource = source.replace(/^.+?\d+-/, '').replace(/^基础资料-?/, '');
+  return `${section}${itemIndex} / ${compactSource || source}`;
 }
 
 function SafetyNotice({ items }) {

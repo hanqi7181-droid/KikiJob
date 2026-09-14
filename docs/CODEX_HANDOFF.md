@@ -51,6 +51,8 @@
 - Chrome 插件/自动填表匹配已收紧：扫描字段时不再把 placeholder 当作真实 label；`请输入/请选择/请填写` 等提示词只作为弱证据或直接未匹配；通用匹配器和 KikiJob 预览都会用大区块上下文阻止教育经历、工作经历、项目经历串填。
 - Chrome 插件通用扫描已新增 section item 组合上下文：字段会带上 `sectionType`、`itemIndex`、`sectionSelector`、`itemSelector`，KikiJob 匹配时同一段教育/实习/项目经历只匹配同 index 的简历资料，避免多段经历串填。
 - Chrome 插件 popup 已改为 KikiJob 马卡龙色系，隐藏调试/学习入口；扫描、复制 JSON、填充、确认映射都会给明确成功/失败提示。插件本地 API 地址同步为 `http://localhost:8788/api`。辅助投递扫描表已新增单字段“确认”按钮，中置信字段确认后显示“已确认”。
+- 辅助投递已新增“一键确认可填字段”：KikiJob 扫描映射页可一次确认已有值且已匹配的字段；确认状态会写入扩展填充包的 `confirmed/userConfirmed/requiresUserCheck=false`，不会在下一步和插件里反复显示“需确认”。插件 popup 也新增“一键确认”按钮，可把填充包里的可填字段批量标记为已确认。
+- 标准字段下拉已按资料段落显示，例如“实习经历 1 / 职责描述”；简历资料仍按 `education`、`experiences`、`projects` 数组保存，每段经历通过 `sectionType + itemIndex` 绑定，不把多段经历拆散混填。
 - 已新增新用户主流程说明文档：`docs/KIKIJOB_USER_FLOW.md`，可用于录屏讲解和冒烟测试。
 - 已新增独立后端公司池 `server/companyPool.js`，把 27 届校招表第一批可读内容结构化为公司数据：公司类型、行业、业务线、岗位方向、城市、双非/本科/女性友好标签、适合人群和入职体验摘要。
 - 当前公司池共 135 家，无重复；其中 133 家已有明确招聘/校招/官网承载入口，2 家因截图未含 URL 且暂未核到稳定入口，仍标为 `official-search`，在前端显示为“查找官网入口”，不伪装成已核验官网投递。
@@ -123,6 +125,7 @@
 - 已新增后端测试覆盖标签推荐、岗位种子池和岗位入口池：`server/jobCrawler.test.js` mock 官网 HTML，验证大厂/互联网/AI/杭州偏好会返回带标签的推荐公司和岗位，并验证央国企/通信/广州可命中三大运营商方向种子岗位，牛客等零预算岗位搜索入口会在点击智能推荐后生成。
 - 插件重复经历测试已覆盖 3 条实习经历自动新增和“新增一条实习经历”按钮文案。
 - 插件字段匹配测试已覆盖 placeholder-only 不自动匹配，以及工作经历区块里的字段不会串到教育经历映射。
+- 辅助投递测试已覆盖：人工确认后的中置信字段不会再被标记为 `requiresUserCheck`，扩展填充包会携带 `confirmed/userConfirmed`。
 - Doubao 本地自测命令 `npm run resume:parse:doubao` 已成功返回结构化 JSON；当前本地 `http://localhost:8788/api/health` 显示 `doubaoConfigured: True`。
 - 已新增测试覆盖：当 Doubao 被调用但返回空结构化字段时，后端会用本地规则补充可识别字段并返回解析诊断。
 - 已新增测试覆盖：普通 PDF 会先通过 Node `pdf-parse` 抽取文本，避免部署环境缺 Python 时直接失败。

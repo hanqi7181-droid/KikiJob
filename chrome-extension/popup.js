@@ -3,6 +3,7 @@ const API_BASE_URL = (window.JobPilotConfig?.API_BASE_URL || 'http://localhost:8
 const packageInput = document.querySelector('#packageInput');
 const scanButton = document.querySelector('#scanButton');
 const copyScanButton = document.querySelector('#copyScanButton');
+const confirmAllButton = document.querySelector('#confirmAllButton');
 const fillButton = document.querySelector('#fillButton');
 const watchButton = document.querySelector('#watchButton');
 const watchStatusButton = document.querySelector('#watchStatusButton');
@@ -391,6 +392,41 @@ function parsePackage() {
   throw new Error('填充包格式不正确，需要数组或 { steps: [...] }');
 }
 
+function parsePackageEnvelope() {
+  const raw = packageInput.value.trim();
+  if (!raw) throw new Error('请先粘贴 Auto CV 填充包 JSON');
+  const parsed = JSON.parse(raw);
+  if (Array.isArray(parsed)) return { envelope: null, steps: parsed };
+  if (Array.isArray(parsed.steps)) return { envelope: parsed, steps: parsed.steps };
+  throw new Error('填充包格式不正确，需要数组或 { steps: [...] }');
+}
+
+function canConfirmStep(step = {}) {
+  if (step.type === 'file') return false;
+  const value = String(step.value ?? step.answer ?? step.confirmedAnswer ?? '').trim();
+  return Boolean(value) && value !== '待补充' && value !== '待选择简历文件';
+}
+
+function confirmPackageSteps() {
+  const { envelope, steps } = parsePackageEnvelope();
+  let count = 0;
+  const confirmedSteps = steps.map((step) => {
+    if (!canConfirmStep(step)) return step;
+    if (step.confirmed === true || step.userConfirmed === true || step.requiresUserCheck === false) return step;
+    count += 1;
+    return {
+      ...step,
+      confidence: step.confidence || '人工确认',
+      confirmed: true,
+      userConfirmed: true,
+      requiresUserCheck: false,
+    };
+  });
+  const nextPackage = envelope ? { ...envelope, steps: confirmedSteps } : confirmedSteps;
+  packageInput.value = JSON.stringify(nextPackage, null, 2);
+  return { count, steps: confirmedSteps };
+}
+
 function safeParsePackage() {
   try {
     return parsePackage();
@@ -522,6 +558,24 @@ copyScanButton?.addEventListener('click', async () => {
     markButtonDone(copyScanButton, '已复制');
   } catch (error) {
     setStatus(error.message || '复制扫描 JSON 失败', 'error');
+  }
+});
+
+confirmAllButton?.addEventListener('click', async () => {
+  try {
+    const result = confirmPackageSteps();
+    setStatus(result.count ? `已一键确认 ${result.count} 个可填字段。请检查后再点击“填当前页”。` : '没有新的可确认字段；文件上传和空值仍需手动处理。', 'success');
+    markButtonDone(confirmAllButton, '已确认');
+    renderResults(
+      result.steps.map((step) => ({
+        field: step.field || step.sourceLabel || step.id,
+        status: step.confirmed || step.userConfirmed || step.requiresUserCheck === false ? 'confirmed' : step.requiresUserCheck ? 'needs_confirmation' : 'field',
+        reason: step.sourceLabel ? `来自 ${step.sourceLabel}` : step.action || '',
+        mappingSource: step.group || '',
+      }))
+    );
+  } catch (error) {
+    setStatus(error.message || '一键确认失败', 'error');
   }
 });
 

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildAutofillPreview, buildAutofillPreviewFromScannedFields } from './careerAutofill.js';
+import { buildAutofillPreview, buildAutofillPreviewFromScannedFields, buildAutofillScript } from './careerAutofill.js';
 
 const mappings = [
   {
@@ -137,4 +137,36 @@ test('section item context keeps repeated work cards aligned by index', () => {
 
   assert.equal(preview.fields[0].matchedSourceLabel, '实习经历2-公司名称');
   assert.equal(preview.fields[0].value, '中国联通');
+});
+
+test('manually confirmed medium-confidence fields are not marked as requiring user check', () => {
+  const script = buildAutofillScript({
+    fields: [
+      {
+        id: 'work-desc-1',
+        label: '工作描述',
+        matchedSourceLabel: '实习经历1-职责描述',
+        matchedGroup: '实习经历',
+        aliases: '职责描述 / 工作职责',
+        type: 'textarea',
+        value: '负责业务数据分析。',
+        instruction: '用户已确认字段和值',
+        confidence: '人工确认',
+        userConfirmed: true,
+      },
+      {
+        id: 'salary',
+        label: '期望薪资',
+        type: 'input',
+        value: '待补充',
+        instruction: '需要人工选择字段',
+        confidence: '中',
+      },
+    ],
+  });
+
+  assert.equal(script[0].requiresUserCheck, false);
+  assert.equal(script[0].confirmed, true);
+  assert.equal(script[0].userConfirmed, true);
+  assert.equal(script[1].requiresUserCheck, true);
 });

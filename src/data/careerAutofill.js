@@ -451,7 +451,10 @@ export function buildAutofillScript(preview) {
     type: item.type,
     value: item.type === 'file' ? item.value || '待选择简历文件' : item.value || '待补充',
     action: item.instruction,
-    requiresUserCheck: item.type === 'file' || item.confidence !== '高',
+    confidence: item.confidence,
+    userConfirmed: item.userConfirmed === true || item.confidence === '人工确认',
+    confirmed: item.userConfirmed === true || item.confidence === '人工确认' || item.confidence === '高',
+    requiresUserCheck: item.type === 'file' || !(item.userConfirmed === true || item.confidence === '人工确认' || item.confidence === '高'),
   }));
 }
 
