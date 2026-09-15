@@ -34,6 +34,8 @@
 
   function sectionSnippets(element) {
     const parts = [];
+    const itemTitle = nearestRepeaterItemTitle(element);
+    if (itemTitle?.text) parts.push(itemTitle.text);
     let current = element;
     for (let depth = 0; current && depth < 7; depth += 1) {
       let sibling = current.previousElementSibling;
@@ -173,11 +175,12 @@
     const adapterContext = adapter.fieldGroupContext?.(element);
     if (adapterContext) return adapterContext;
 
+    const itemTitle = nearestRepeaterItemTitle(element);
     const section = nearestSection(element);
-    const sectionTitle = section?.title || '';
-    const sectionType = inferSectionType([sectionTitle, section?.text, sectionSnippets(element).join(' ')].filter(Boolean).join(' '));
+    const sectionTitle = itemTitle?.text || section?.title || '';
+    const sectionType = inferSectionType([itemTitle?.text, sectionTitle, section?.text, sectionSnippets(element).join(' ')].filter(Boolean).join(' '));
     const item = sectionType ? nearestSectionItem(element, section?.element || document.body, sectionType) : null;
-    const titleIndex = inferItemIndexFromText([sectionTitle, section?.text, sectionSnippets(element).join(' ')].filter(Boolean).join(' '));
+    const titleIndex = inferItemIndexFromText([itemTitle?.text, sectionTitle, section?.text, sectionSnippets(element).join(' ')].filter(Boolean).join(' '));
     const itemIndex = titleIndex >= 0 ? titleIndex : item?.index ?? -1;
     return {
       section: sectionTitle,
@@ -186,10 +189,49 @@
       sectionSelector: section?.element ? selectorFor(section.element) : '',
       itemIndex,
       itemSelector: item?.element ? selectorFor(item.element) : '',
-      itemText: item?.text || '',
+      itemText: compactText([itemTitle?.text, item?.text].filter(Boolean).join(' ')).slice(0, 260),
       sectionItemKey: sectionType ? `${sectionType}:${itemIndex >= 0 ? itemIndex : 'single'}` : '',
       sectionItemLabel: sectionType ? `${readableSectionTitle(sectionType)}${itemIndex >= 0 ? itemIndex + 1 : ''}` : '',
     };
+  }
+
+  function nearestRepeaterItemTitle(element) {
+    let current = element;
+    for (let depth = 0; current?.parentElement && current.parentElement !== document.body && depth < 9; depth += 1) {
+      const parent = current.parentElement;
+      const directTitle = directRepeaterTitle(parent);
+      if (directTitle) return directTitle;
+
+      const siblings = Array.from(parent.children || []);
+      const currentIndex = siblings.indexOf(current);
+      const before = currentIndex >= 0 ? siblings.slice(0, currentIndex).reverse() : [];
+      for (const sibling of before.slice(0, 8)) {
+        const text = compactText(sibling.innerText || sibling.textContent || '');
+        if (isRepeaterItemTitle(text)) return { text, element: sibling };
+        const nested = Array.from(sibling.querySelectorAll?.('*') || [])
+          .map((node) => ({ text: compactText(node.innerText || node.textContent || ''), element: node }))
+          .find((item) => isRepeaterItemTitle(item.text));
+        if (nested) return nested;
+      }
+      current = parent;
+    }
+    return null;
+  }
+
+  function directRepeaterTitle(element) {
+    const direct = Array.from(element.children || [])
+      .map((child) => ({ text: compactText(child.innerText || child.textContent || ''), element: child }))
+      .find((item) => isRepeaterItemTitle(item.text));
+    return direct || null;
+  }
+
+  function isRepeaterItemTitle(text = '') {
+    const value = compactText(text);
+    return (
+      value.length > 0 &&
+      value.length <= 120 &&
+      /(?:教育|学历|实习|工作|项目|获奖|实践|经历|经验|education|work|internship|project|award)[\s:：_\-－—]*([1-9]\d?|[一二三四五六七八九十])/i.test(value)
+    );
   }
 
   function nearestSection(element) {

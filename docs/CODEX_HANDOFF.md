@@ -68,6 +68,7 @@
 - 辅助投递扫描导入已修复百度招聘页这类 generic JSON：优先从 `section/sectionTitle` 的“工作经历-2”“项目-4”推导 `sectionType + itemIndex`，覆盖插件扫描里不稳定的 `itemIndex`，避免多段工作/项目经历识别成第 1 段或误匹配到姓名。
 - Chrome 插件 adapter 架构已拆出主流 ATS 壳：`genericAdapter`、`mokaAdapter`、`beisenAdapter`、`nowcoderAdapter`、`workdayAdapter`、`leverAdapter`、`greenhouseAdapter`。除 Moka 外，第一版先复用增强后的通用扫描/填充引擎，并通过 registry 按域名优先识别平台。
 - Chrome 插件通用扫描字段已新增 `sectionItemKey` 和 `sectionItemLabel`，并优先从“工作经历-2 / 项目-4”等区块标题推导 item index，让 KikiJob 能按“section + item”组合识别整段经历。
+- Chrome 插件通用扫描已继续修复：即使 ATS 用普通 `div/span` 显示“项目-1（可填写科研、课程、实习、实践等项目）”而不是 `h1/h2/title`，scanner 也会把它识别为当前字段的 `section/sectionTitle/itemText`，避免导出的 JSON 只有“项目名称/项目职责”却缺少段落标题。
 - 前端会把 Supabase access token 放进现有 Bearer 请求头槽位，后端用 Supabase anon key 验证 token 后继续走现有接口。
 - 已新增独立后端公司池 `server/companyPool.js`，把 27 届校招表第一批可读内容结构化为公司数据：公司类型、行业、业务线、岗位方向、城市、双非/本科/女性友好标签、适合人群和入职体验摘要。
 - 当前公司池共 135 家，无重复；其中 133 家已有明确招聘/校招/官网承载入口，2 家因截图未含 URL 且暂未核到稳定入口，仍标为 `official-search`，在前端显示为“查找官网入口”，不伪装成已核验官网投递。
@@ -162,6 +163,7 @@
 - 已新增后端测试覆盖标签推荐、岗位种子池和岗位入口池：`server/jobCrawler.test.js` mock 官网 HTML，验证大厂/互联网/AI/杭州偏好会返回带标签的推荐公司和岗位，并验证央国企/通信/广州可命中三大运营商方向种子岗位，牛客等零预算岗位搜索入口会在点击智能推荐后生成。
 - 插件重复经历测试已覆盖 3 条实习经历自动新增和“新增一条实习经历”按钮文案。
 - 插件字段匹配测试已覆盖 placeholder-only 不自动匹配，以及工作经历区块里的字段不会串到教育经历映射。
+- 插件扫描测试已覆盖：普通可见 `div` 里的“项目-1（可填写科研、课程、实习、实践等项目）”会进入导出的字段 JSON，并生成 `sectionType=project`、`itemIndex=0`、`sectionItemKey=project:0`。
 - 辅助投递测试已覆盖：人工确认后的中置信字段不会再被标记为 `requiresUserCheck`，扩展填充包会携带 `confirmed/userConfirmed`。
 - Onboarding 测试已覆盖：登录账号不会从个人资料邮箱自动预填。
 - Doubao 本地自测命令 `npm run resume:parse:doubao` 已成功返回结构化 JSON；当前本地 `http://localhost:8788/api/health` 显示 `doubaoConfigured: True`。
